@@ -1,4 +1,4 @@
-const { google } = require("googleapis");
+const DEFAULT_SHEET_ID = "1010WS28NGeh6CkQlXX6GoeLfewA_EYDYkp-y-84QqDo";
 
 const SHEETS = {
   CONFIG: "Config",
@@ -318,6 +318,51 @@ function parseKPI(values) {
   return { months, data };
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n") {
+      row.push(cell.replace(/\r$/, ""));
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell.replace(/\r$/, ""));
+    rows.push(row);
+  }
+
+  return rows;
+}
+
 function getSeriesValue(source, period, key) {
   const months = source.months || [];
   const data = source.data || {};
@@ -473,13 +518,19 @@ function buildPeriodMetadata(dash, meta) {
 }
 
 async function getGoogleSheetsClient() {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const sheetId = process.env.GOOGLE_SHEET_ID || DEFAULT_SHEET_ID;
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-  if (!sheetId || !serviceAccountEmail || !privateKey) {
-    throw new Error("Missing one or more required environment variables.");
+  if (!serviceAccountEmail || !privateKey) {
+    return {
+      sheetId,
+      sheets: null,
+      sourceMode: "public_csv"
+    };
   }
+
+  const { google } = require("googleapis");
 
   const auth = new google.auth.JWT(
     serviceAccountEmail,
@@ -490,11 +541,31 @@ async function getGoogleSheetsClient() {
 
   return {
     sheetId,
-    sheets: google.sheets({ version: "v4", auth })
+    sheets: google.sheets({ version: "v4", auth }),
+    sourceMode: "service_account"
   };
 }
 
+async function readPublicCsvTab(sheetId, tab) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Unable to read public Google Sheet tab ${tab}: ${response.status} ${response.statusText}`);
+  }
+
+  return parseCsv(await response.text());
+}
+
 async function readAllRequiredTabs(sheets, sheetId) {
+  if (!sheets) {
+    const result = {};
+    await Promise.all(REQUIRED_TABS.map(async tab => {
+      result[tab] = await readPublicCsvTab(sheetId, tab);
+    }));
+    return result;
+  }
+
   const ranges = REQUIRED_TABS.map(tab => `'${tab}'!A1:AZ1000`);
 
   const response = await sheets.spreadsheets.values.batchGet({
@@ -514,7 +585,7 @@ async function readAllRequiredTabs(sheets, sheetId) {
   return result;
 }
 
-function buildDash(raw) {
+function buildDash(raw, sourceMode = "service_account") {
   const meta = parseConfig(raw[SHEETS.CONFIG] || []);
   const pl = parsePL(raw[SHEETS.PL] || []);
 
@@ -556,7 +627,7 @@ function buildDash(raw) {
     cash,
     kpi,
     generatedAt: new Date().toISOString(),
-    source: "Google Sheets"
+    source: sourceMode === "public_csv" ? "Public Google Sheets CSV" : "Google Sheets API"
   };
 
   const periodMetadata = buildPeriodMetadata(dash, meta);
@@ -571,9 +642,9 @@ module.exports = async function handler(req, res) {
   try {
     res.setHeader("Cache-Control", "no-store, max-age=0");
 
-    const { sheetId, sheets } = await getGoogleSheetsClient();
+    const { sheetId, sheets, sourceMode } = await getGoogleSheetsClient();
     const raw = await readAllRequiredTabs(sheets, sheetId);
-    const dash = buildDash(raw);
+    const dash = buildDash(raw, sourceMode);
 
     return res.status(200).json(dash);
   } catch (error) {

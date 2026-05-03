@@ -6,6 +6,8 @@ Standalone Vercel project for the Shikho Finance Governance Dashboard.
 
 The dashboard reads live data from Google Sheets through `api/dashboard-data.js`.
 
+Because the Google Sheet is public view-only, the API can run without secrets by reading Google's public CSV export. If service-account environment variables are present, it will use the authenticated Google Sheets API instead.
+
 The Google Sheet `Config` tab controls the reporting period:
 
 - `Actuals_To`: latest actual month shown in the dashboard
@@ -16,9 +18,9 @@ The Google Sheet `Config` tab controls the reporting period:
 
 If `Actuals_To` points to an incomplete month, the API returns a validation warning and the dashboard keeps showing the latest complete period.
 
-## Required Vercel Environment Variables
+## Optional Vercel Environment Variables
 
-Set these in the Vercel project:
+Set these only if you want authenticated Google Sheets API access instead of public CSV access:
 
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
