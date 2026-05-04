@@ -746,6 +746,9 @@ body{
   border-radius:8px;
   box-shadow:none;
   padding:9px 11px;
+  margin:18px 0 0;
+  font-size:11px;
+  opacity:.82;
 }
 .data-status strong{color:var(--text)}
 .data-status.ok{
@@ -777,7 +780,7 @@ body{
   letter-spacing:.55px;
 }
 .kpi-value,.rev-kpi-value{
-  color:var(--text);
+  color:var(--navy);
   font-size:27px;
   margin:14px 0 9px;
   letter-spacing:0;
@@ -957,13 +960,13 @@ function showDashboardError(error){
 }
 
 const PAGES=[
-  ['exec','Executive Summary','Top metrics, risks and actions','M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z'],
-  ['pl','Budget vs Actual','Revenue, margin and EBITDA control','M22 12h-4l-3 8L9 4l-3 8H2'],
-  ['revenue','Revenue','Channel, course and repeat revenue mix','M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'],
-  ['costs','Cost & Margins','Cost intensity and operating leverage','M4 19V5 M4 19h16 M9 16V9 M14 16V7 M19 16v-5'],
-  ['sales','Sales Efficiency','Productivity, ROI and headcount','M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87'],
-  ['growth','Marketing Efficiency','Spend, actual cost and paid activity','M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20 M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12 M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4'],
-  ['cash','Cash & Runway','Cash balance, burn and scenarios','M1 4h22v16H1z M1 10h22']
+  ['exec','Executive Summary','Command-center view of financial health and action signals','M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z'],
+  ['pl','Budget vs Actual Performance','Revenue, margin and EBITDA control against budget','M22 12h-4l-3 8L9 4l-3 8H2'],
+  ['revenue','Revenue Analysis','Channel, course and repeat revenue drivers over time','M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'],
+  ['costs','Cost & Margins','COGS, payroll and operating leverage','M4 19V5 M4 19h16 M9 16V9 M14 16V7 M19 16v-5'],
+  ['sales','Sales Team Efficiency','Sales productivity, ROI, headcount and package mix','M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87'],
+  ['growth','Marketing & Growth Efficiency','Platform spend, actual spend and paid user activity','M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20 M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12 M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4'],
+  ['cash','Cash & Runway','Cash balance, burn and scenario risk','M1 4h22v16H1z M1 10h22']
 ];
 const C={ navy:'#394E99', navy2:'#4B60B2', blueLight:'#8394D1', magenta:'#C02980', gold:'#E6A600', teal:'#39A8B8', green:'#2E8B66', red:'#E03350', redLight:'#F6B5BE', redSoft:'#FAD7DD', redMid:'#F09AA8', amber:'#B97818', grey:'#7E889A', grid:'#E8EDF5', fill:'#394E99', colors:['#394E99','#8394D1','#C02980','#39A8B8','#2E8B66','#E6A600','#E03350','#7E889A'] };
 const THEME_COLORS={
@@ -1140,6 +1143,7 @@ const barDataLabelPlugin={
     ctx.font='800 11px Inter, Poppins, sans-serif';
     ctx.textAlign='center';
     (chart.data.datasets||[]).forEach((ds,di)=>{
+      if(ds._hideDataLabels) return;
       const meta=chart.getDatasetMeta(di);
       if(meta.hidden) return;
       meta.data.forEach((bar,i)=>{
@@ -1239,10 +1243,24 @@ function dataStatusHtml(){
   const message=warnings.length?`<div class="data-status-message">${warnings.map(h).join('<br>')}</div>`:'';
   return `<div class="data-status ${statusClass}"><span><strong>Data shown through:</strong> ${h(through)}</span>${configuredText}${updated}${refreshed}${message}</div>`;
 }
-function pageScaffold(id,title,sub,num,body){return `<section class="page ${state.page===id?'active':''}" id="page-${id}">${dataStatusHtml()}<div class="section-header"><div class="section-left"><div class="section-num"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="${pageIcon(id)}"/></svg></div><div><div class="section-title">${title}</div><div class="section-sub">${sub}</div></div></div><div class="view-note" id="note-${id}"></div></div>${body}</section>`}
+function pageScaffold(id,title,sub,num,body){return `<section class="page ${state.page===id?'active':''}" id="page-${id}"><div class="section-header"><div class="section-left"><div class="section-num"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="${pageIcon(id)}"/></svg></div><div><div class="section-title">${title}</div><div class="section-sub">${sub}</div></div></div><div class="view-note" id="note-${id}"></div></div>${body}${dataStatusHtml()}</section>`}
 function chartCard(title,sub,canvas,full=false,tall=false){return `<div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">${title}</div><div class="chart-sub">${sub||''}</div></div></div><div class="chart-body ${tall?'tall':''}"><canvas id="${canvas}"></canvas></div></div>`}
 function costDriverCard(title,sub,id){return `<div class="chart-card pl-basis-card"><div class="chart-card-header"><div><div class="chart-title">${title}</div><div class="chart-sub">${sub||''}</div></div></div><div class="chart-body tall" id="${id}"></div></div>`}
-function setNote(page){const notes={monthly:'Monthly values shown for the selected month; Executive Summary compares to same month last year',ytd:'YTD values shown from January through selected month; Executive Summary compares to prior-year YTD'}; const n=el('note-'+page); if(n)n.textContent=notes[state.view]||'';}
+function setNote(page){
+  const n=el('note-'+page);
+  if(!n) return;
+  const monthly=state.view==='monthly';
+  const notes={
+    exec: monthly?'Monthly view; compared with same month last year.':'YTD view; compared with prior-year YTD.',
+    pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`,
+    revenue: monthly?'Selected month compared with prior year and prior month.':'YTD revenue mix through selected month.',
+    costs: monthly?'Selected month cost intensity and margin movement.':'YTD cost intensity and operating leverage.',
+    sales: monthly?'Selected month sales productivity and headcount.':'YTD sales productivity and ROI.',
+    growth:'Monthly trend view; Monthly/YTD toggle does not change these charts.',
+    cash:`Scenario view; forecast starts from ${cashForecastStart()||'the next forecast month'}.`
+  };
+  n.textContent=notes[page]||'';
+}
 function renderNav(){el('navList').innerHTML=PAGES.map((p,i)=>`<div class="nav-item ${state.page===p[0]?'active':''}" onclick="goto('${p[0]}')"><div class="nav-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="${p[3]}"/></svg></div><span class="nav-label">${p[1]}</span></div>`).join('');}
 
 const PERIOD_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1473,6 +1491,81 @@ function insightText(){
     ]
   };
 }
+function smartInsightText(){
+  const badgeHtml=(type,label)=>`<span class="badge ${type}">${label}</span>`;
+  const period=state.period;
+  const view=state.view;
+  const compareLabel=view==='ytd'?'prior-year YTD':prevYearMonth(period);
+  const absPct=(cur,base)=>{const p=pctChange(cur,base); return p==null?null:Math.abs(p);};
+  const direction=(cur,base)=>{const p=pctChange(cur,base); if(p==null) return 'flat'; return p>=0?'up':'down';};
+  const pctText=(cur,base)=>{const p=absPct(cur,base); return p==null?'n/a':p.toFixed(0)+'%';};
+  const ppText=(cur,base)=>cur==null||base==null?'n/a':`${cur>=base?'+':''}${(cur-base).toFixed(1)}pp`;
+  const cashRows=DASH.cash.filter(r=>r.Scenario==='Base');
+  const cashCur=cashRows.find(r=>r.Month===period)||cashRows.find(r=>r.Month===latestActualPeriod())||cashRows[cashRows.length-1]||{};
+  const cashBase=cashRows.find(r=>r.Month===firstPeriodOfYear(cashRows.map(x=>x.Month),period))||cashRows[0]||{};
+  const cashClose=cashCur.Closing_Balance||0;
+  const cashBaseClose=cashBase.Closing_Balance||0;
+  const cashChange=pctChange(cashClose,cashBaseClose);
+  const grossRevenue=execMetricValue('Gross Revenue',period,view);
+  const grossRevenuePrior=execPriorMetricValue('Gross Revenue',period,view);
+  const ebitda=execMetricValue('EBITDA',period,view);
+  const ebitdaPrior=execPriorMetricValue('EBITDA',period,view);
+  const gm=execMetricValue('GM%',period,view);
+  const gmPrior=execPriorMetricValue('GM%',period,view);
+  const netCashBurn=execMetricValue('Net Cash Burn',period,view);
+  const netCashBurnPrior=execPriorMetricValue('Net Cash Burn',period,view);
+  const getPL=(key)=>view==='ytd'?ytdValue(DASH.pl.actual[key]||[],DASH.pl.months,period):val(DASH.pl.actual[key]||[],idx(DASH.pl.months,period));
+  const getPriorPL=(key)=>view==='ytd'?priorYtdValue(DASH.pl.actual[key]||[],DASH.pl.months,period):val(DASH.pl.actual[key]||[],idx(DASH.pl.months,prevYearMonth(period)));
+  const salesCost=Math.abs(getPL('Less: Sales Team Cost')||0);
+  const salesCostPrior=Math.abs(getPriorPL('Less: Sales Team Cost')||0);
+  const salesCostPct=grossRevenue?salesCost/grossRevenue*100:null;
+  const salesCostPriorPct=grossRevenuePrior?salesCostPrior/grossRevenuePrior*100:null;
+  const cogs=Math.abs(getPL('Total: COGS')||0);
+  const cogsPrior=Math.abs(getPriorPL('Total: COGS')||0);
+  const cogsPct=grossRevenue?cogs/grossRevenue*100:null;
+  const cogsPriorPct=grossRevenuePrior?cogsPrior/grossRevenuePrior*100:null;
+  const salesM=DASH.sales.months, salesA=DASH.sales.data;
+  const sIdx=idx(salesM,period), sPriorIdx=idx(salesM,prevYearMonth(period));
+  const avgContrib=val(salesA.Contribution_per_Agent?.['Average Contribution/Agent']||[],sIdx);
+  const avgContribPrior=val(salesA.Contribution_per_Agent?.['Average Contribution/Agent']||[],sPriorIdx);
+  const dmM=DASH.dm.months, dmA=DASH.dm.data, dmIdx=idx(dmM,period);
+  const platform=val(dmA.Total_Ad_Spend||[],dmIdx)||0;
+  const actual=val(dmA.Adjusted_Ad_Spend_Total||[],dmIdx)||0;
+  const adGap=platform?actual-platform:null;
+  const adGapPct=platform?adGap/platform*100:null;
+  const dbM=DASH.accrualCosts.cogs.months, dbA=DASH.accrualCosts.cogs.data;
+  const dbIdx=idx(dbM,period), dbPriorIdx=idx(dbM,prevYearMonth(period));
+  const dbCost=val(dbA['Database & Server Costs']||[],dbIdx)||0;
+  const dbCostPrior=val(dbA['Database & Server Costs']||[],dbPriorIdx)||0;
+
+  const headlineCandidates=[
+    {score:Math.abs(pctChange(grossRevenue,grossRevenuePrior)||0), text:`${badgeHtml(grossRevenue>=grossRevenuePrior?'good':'bad',grossRevenue>=grossRevenuePrior?'Growth':'Watch')} Revenue ${fUSD(grossRevenue)} is ${direction(grossRevenue,grossRevenuePrior)} ${pctText(grossRevenue,grossRevenuePrior)} vs ${compareLabel}.`},
+    {score:Math.abs((gm||0)-(gmPrior||0)), text:`${badgeHtml(gm>=gmPrior?'good':'bad',gm>=gmPrior?'Margin':'Watch')} Gross margin ${fPct(gm)} (${ppText(gm,gmPrior)} vs ${compareLabel}).`},
+    {score:Math.abs(ebitda-ebitdaPrior)||0, text:`${badgeHtml(ebitda>=0?'good':'bad',ebitda>=0?'EBITDA':'Watch')} EBITDA ${fUSD(ebitda)} vs ${fUSD(ebitdaPrior)} ${compareLabel}.`},
+    {score:Math.abs(cashChange||0), text:`${badgeHtml(cashClose>=cashBaseClose?'good':'bad',cashClose>=cashBaseClose?'Cash':'Watch')} Cash balance ${fUSD(cashClose)} (${direction(cashClose,cashBaseClose)} ${pctText(cashClose,cashBaseClose)} from year start).`}
+  ];
+
+  const riskCandidates=[
+    {score:Math.max(0,(salesCostPct||0)-(salesCostPriorPct||0))+Math.max(0,salesCostPct||0), key:'sales', text:`${badgeHtml('bad','Risk')} Sales cost is ${fPct(salesCostPct)} of revenue (${ppText(salesCostPct,salesCostPriorPct)} vs ${compareLabel}).`},
+    {score:avgContribPrior?Math.max(0,Math.abs(pctChange(avgContrib,avgContribPrior)||0)):0, key:'sales', text:`${badgeHtml((avgContrib||0)>=(avgContribPrior||0)?'watch':'bad','Risk')} Agent contribution ${fUSD(avgContrib)} (${direction(avgContrib,avgContribPrior)} ${pctText(avgContrib,avgContribPrior)} vs ${compareLabel}).`},
+    {score:Math.max(0,(cogsPct||0)-(cogsPriorPct||0))+Math.max(0,cogsPct||0), key:'cost', text:`${badgeHtml('watch','Risk')} COGS is ${fPct(cogsPct)} of revenue (${ppText(cogsPct,cogsPriorPct)} vs ${compareLabel}).`},
+    {score:Math.max(0,pctChange(dbCost,dbCostPrior)||0), key:'cost', text:`${badgeHtml('watch','Risk')} Database & Server cost ${fUSD(dbCost)} (${direction(dbCost,dbCostPrior)} ${pctText(dbCost,dbCostPrior)} vs ${compareLabel}).`},
+    {score:Math.max(0,adGapPct||0), key:'marketing', text:`${badgeHtml((adGap||0)>0?'watch':'good','Risk')} Marketing actual ${fUSD(actual)} vs platform ${fUSD(platform)} (${adGapPct==null?'n/a':(adGapPct>=0?'+':'')+adGapPct.toFixed(0)+'%'}).`},
+    {score:netCashBurn<0?100:Math.max(0,-(pctChange(netCashBurn,netCashBurnPrior)||0)), key:'cash', text:`${badgeHtml(netCashBurn>=0?'watch':'bad','Risk')} Net cash burn ${fUSD(netCashBurn)} vs ${fUSD(netCashBurnPrior)} ${compareLabel}.`}
+  ];
+
+  const headlines=headlineCandidates.map(x=>({...x,score:Number.isFinite(x.score)?x.score:0})).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>x.text);
+  const risks=riskCandidates.map(x=>({...x,score:Number.isFinite(x.score)?x.score:0})).sort((a,b)=>b.score-a.score).slice(0,3);
+  const riskKeys=new Set(risks.map(r=>r.key));
+  const actions=[];
+  const addAction=(key,text)=>{if((!key||riskKeys.has(key)) && !actions.includes(text)) actions.push(text);};
+  addAction('sales','Review sales ROI and contribution by team before hiring.');
+  addAction('cost','Set weekly owners for COGS and server-cost controls.');
+  addAction('marketing','Reconcile platform spend to actual cash cost before next close.');
+  addAction('cash','Use pessimistic cash case as the weekly liquidity trigger.');
+  addAction(null,`Lock ${monthLabelLong(nextPeriod(period)||DASH?.periods?.forecastFrom||period)} revenue by course and channel.`);
+  return {headlines,risks:risks.map(x=>x.text),actions:actions.slice(0,4)};
+}
 function execTrendCard(){
   const options=[['GM%','Gross Margin %'],['CM 1 %','CM 1 %'],['CM 2 %','CM 2 %'],['CM 3 %','CM 3 %'],['EBITDA %','EBITDA %']];
   const filters=options.map(([key,label])=>`<label class="${state.execMargins.includes(key)?'active':''}"><input type="checkbox" ${state.execMargins.includes(key)?'checked':''} onchange="toggleExecMargin('${key}',this.checked)">${label}</label>`).join('');
@@ -1481,10 +1574,10 @@ function execTrendCard(){
 function renderExec(){
   const metrics=execMetricSet(state.period,state.view);
   const body=`<div class="kpi-grid">${execKpi('Gross Revenue',metrics.grossRevenue,metrics.grossRevenuePrior,fUSD)}${execKpi('Gross Margin %',metrics.gmPct,metrics.gmPctPrior,v=>fPct(v))}${execKpi('EBITDA',metrics.ebitda,metrics.ebitdaPrior,fUSD)}${execKpi('Net Cash Burn',metrics.netCashBurn,metrics.netCashBurnPrior,fUSD)}</div><div class="chart-grid">${execTrendCard()}<div class="chart-card clickable"><div class="chart-card-header"><div><div class="chart-title">Revenue & EBITDA vs Prior Year</div><div class="chart-sub">Selected period vs prior year.</div></div><div class="drill-click-note">Drill down</div></div><div class="chart-body tall"><canvas id="execCompare"></canvas></div></div></div><div class="chart-grid full"><div class="chart-card clickable"><div class="chart-card-header"><div><div class="chart-title">Gross Revenue to EBITDA Bridge</div><div class="chart-sub">Revenue, costs and EBITDA flow.</div></div><div class="drill-click-note">Drill down</div></div><div class="chart-body tall"><canvas id="execWaterfall"></canvas></div></div></div><div class="insight-grid"><div class="insight-card"><div class="insight-head"><span></span>Headlines</div><div class="insight-body"><ul id="insightHead"></ul></div></div><div class="insight-card"><div class="insight-head"><span></span>Risks</div><div class="insight-body"><ul id="insightRisk"></ul></div></div><div class="insight-card"><div class="insight-head"><span></span>Actions</div><div class="insight-body"><ul id="insightAction"></ul></div></div></div>`;
-  el('main').innerHTML=pageScaffold('exec','Executive Summary','Top metrics, risks and actions',1,body);
+  el('main').innerHTML=pageScaffold('exec','Executive Summary','Cash basis view of financial health, business health and immediate decisions',1,body);
   setNote('exec');
   renderExecCharts();
-  const ins=insightText();
+  const ins=smartInsightText();
   el('insightHead').innerHTML=ins.headlines.map(x=>`<li>${x}</li>`).join('');
   el('insightRisk').innerHTML=ins.risks.map(x=>`<li>${x}</li>`).join('');
   el('insightAction').innerHTML=ins.actions.map(x=>`<li>${x}</li>`).join('');
@@ -1660,7 +1753,7 @@ function renderPL(){
   const comparisonHeader=plComparisonHeader(compareMode);
   const compareSelect=`<select id="plCompareSelect" class="small-select" onchange="state.plCompare=this.value; renderPL();"><option value="budget" ${compareMode==='budget'?'selected':''}>Budget</option><option value="previous_month" ${compareMode==='previous_month'?'selected':''}>Previous Month</option><option value="same_month_last_year" ${compareMode==='same_month_last_year'?'selected':''}>Same Month Previous Year</option></select>`;
   const body=`<div class="chart-grid">${chartCard('Gross Revenue vs Budget','Monthly actuals vs budget.','plRev',false,true)}${plMarginCard()}</div><div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title">Profit & Loss (${plTablePeriodLabel(state.period,state.view)})</div><div class="pl-controls">${compareSelect}<button class="pl-toggle-btn" onclick="toggleAllPL(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllPL(false)">Collapse All</button></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>${actualHeader}</th><th>${comparisonHeader}</th><th>Variance</th><th>Var %</th></tr></thead><tbody id="plTable"></tbody></table></div>`;
-  el('main').innerHTML=pageScaffold('pl','Budget vs Actual','Revenue, margin and EBITDA control',2,body);
+  el('main').innerHTML=pageScaffold('pl','Budget vs Actual Performance','Cash basis revenue, margin and EBITDA performance against budget',2,body);
   setNote('pl'); renderPLCharts(); renderPLTable();
 }
 function budgetYear(){return Number(DASH?.periods?.budgetYear||DASH?.meta?.budgetYear)||currentYearLabel(state.period||latestActualPeriod());}
@@ -1843,7 +1936,7 @@ function revenueAovCard(){
 
 function renderRevenue(){
   const body=`<div class="metric-pills" id="revPills"></div><div class="chart-grid">${chartCard('Channel Revenue','Period mix by channel.','revChannel',false,true)}${chartCard('Course Revenue','Period mix by course.','revCourse',false,true)}</div><div class="chart-grid">${chartCard('New vs Repeat Revenue','Acquisition and repeat revenue.','revNvr',false,true)}${revenueAovCard()}</div>`;
-  el('main').innerHTML=pageScaffold('revenue','Revenue','Channel, course and repeat revenue mix',3,body);
+  el('main').innerHTML=pageScaffold('revenue','Revenue Analysis','Revenue mix, acquisition quality and AOV by period',3,body);
   setNote('revenue');
   renderRevenueCharts();
 }
@@ -2121,18 +2214,20 @@ function renderRevenuePills(){
   const repeatPct=total?repeatVal/total*100:null;
   const newPctLy=lyTotal?newLy/lyTotal*100:null;
   const repeatPctLy=lyTotal?repeatLy/lyTotal*100:null;
-  const salesMeta=`${revBadge('YoY',salesYoy.pct)}${state.view==='monthly'?revBadge('MoM',salesPm.pct):''}`;
-  const aovMeta=`${revBadge('YoY',aovYoy.pct)}${state.view==='monthly'?revBadge('MoM',aovPm.pct):''}`;
-  const tsMeta=`<span class="badge">LY: TS ${fPct(lySplit.tsPct)} / Non-TS ${fPct(lySplit.nonTsPct)}</span>`;
+  const yoyLabel=state.view==='monthly'?lyPeriod:'YoY';
+  const momLabel=prevMonth(state.period);
+  const salesMeta=`${revBadge(yoyLabel,salesYoy.pct)}${state.view==='monthly'?revBadge(momLabel,salesPm.pct):''}`;
+  const aovMeta=`${revBadge(yoyLabel,aovYoy.pct)}${state.view==='monthly'?revBadge(momLabel,aovPm.pct):''}`;
+  const tsMeta=`<span class="badge">LY: ${fPct(lySplit.tsPct)} / ${fPct(lySplit.nonTsPct)}</span>`;
   const mixMeta=`<span class="badge">LY: ${fPct(newPctLy)} / ${fPct(repeatPctLy)}</span>`;
-  const valueMeta=`<span class="badge">LY New: ${fUSD(newLy)}</span><span class="badge">LY Repeat: ${fUSD(repeatLy)}</span>`;
+  const valueMeta=`<span class="badge">LY: ${fUSD(newLy)} / ${fUSD(repeatLy)}</span>`;
   el('revPills').className='rev-kpi-grid';
   el('revPills').innerHTML=
     revenueCard('AOV',fUSD(aovYoy.current,false),aovMeta,aovYoy.pct==null?'watch':aovYoy.pct>=0?'good':'bad')+
     revenueCard('Sales',fInt(salesYoy.current),salesMeta,salesYoy.pct==null?'watch':salesYoy.pct>=0?'good':'bad')+
-    revenueCard('TS vs Non-TS Split',`TS ${fPct(currentSplit.tsPct)} / Non-TS ${fPct(currentSplit.nonTsPct)}`,tsMeta,'watch')+
+    revenueCard('TS vs Non-TS Split',`${fPct(currentSplit.tsPct)} / ${fPct(currentSplit.nonTsPct)}`,tsMeta,'watch')+
     revenueCard('New vs Repeat %',`${fPct(newPct)} / ${fPct(repeatPct)}`,mixMeta,'watch')+
-    revenueCard('New vs Repeat Revenue',`New ${fUSD(newVal)} / Repeat ${fUSD(repeatVal)}`,valueMeta,'watch');
+    revenueCard('New vs Repeat Revenue',`${fUSD(newVal)} / ${fUSD(repeatVal)}`,valueMeta,'watch');
 }
 function renderRevenueCharts(){
   if(!state.aovMode) state.aovMode='channel';
@@ -2147,7 +2242,7 @@ function renderCosts(){
   const layers=costLayers();
   const body=`<div class="metric-pills"><span class="pill"><strong>P&L Basis:</strong> selected-period revenue, cost intensity and margin snapshot</span><span class="pill"><strong>Accrual Basis:</strong> current period vs prior year with category drilldown</span></div>`+
     layers.map(l=>`<div class="chart-grid">${costDriverCard(`${l.title} | P&L Basis`,`${l.marginLabel} and cost intensity.`,'plCost_'+l.id)}${chartCard(`${l.title} | Accrual Basis`,`Accrual cost vs prior year.`,'accCost_'+l.id,false,true)}</div>`).join('');
-  el('main').innerHTML=pageScaffold('costs','Cost & Margins','Cost intensity and operating leverage',4,body);
+  el('main').innerHTML=pageScaffold('costs','Cost & Margins','Cost intensity, contribution margins and accrual cost movement',4,body);
   setNote('costs');
   renderCostCharts();
 }
@@ -2414,7 +2509,7 @@ function salesCard(title,sub,canvas,key=null,tall=true){
 }
 function renderSales(){
   const body=`<div class="chart-grid">${salesCard('Contribution per Agent','Revenue less salaries + incentives, divided by headcount; click bars for calculation','salesContributionBar',null,true)}${salesCard('Sales ROI','Sales ROI = revenue generated ÷ sales salaries and incentives.','salesRoiLine','salesRoiActive',true)}</div><div class="chart-grid">${salesCard('Contribution per Agent Trend','Contribution per agent = revenue per agent minus salary and incentive cost per agent.','salesContributionTrend','salesContributionActive',true)}${salesCard('Sales Volume per Agent by Team','Sales volume per agent = sales volume ÷ sales team headcount.','salesVolumeAgentLine','salesVolumeActive',true)}</div><div class="chart-grid full">${salesCard('Sales Team Headcount','Total headcount trend; selected month is highlighted; click any bar to see team breakdown','salesHeadcount',null,true)}</div><div class="table-wrap"><table><thead><tr><th>Team</th><th>Revenue</th><th>Sales Volume</th><th>AOV</th><th>Headcount</th><th>Salaries + Incentives</th><th>Sales ROI</th><th>Contribution/Agent</th></tr></thead><tbody id="salesTable"></tbody></table></div>`;
-  el('main').innerHTML=pageScaffold('sales','Sales Efficiency','Productivity, ROI and headcount',5,body);
+  el('main').innerHTML=pageScaffold('sales','Sales Team Efficiency','Productivity, ROI and headcount for revenue execution',5,body);
   setNote('sales'); renderSalesCharts(); renderSalesTable();
 }
 function renderSalesCharts(){
@@ -2567,7 +2662,7 @@ function growthPeriodValue(months,arr,additive=true){
 }
 function renderGrowth(){
   const body=`<div class="chart-grid">${chartCard('Platform Spend by Platform','Google and Facebook spend.','mgAdSpend',false,true)}${chartCard('Platform Spend vs Actual Spend','Platform spend to actual cash cost.','mgAdjustedSpend',false,true)}</div><div class="chart-grid">${chartCard('MAU vs % Active Paid Users','Scale vs paid activity.','mgMauPaid',false,true)}${costDriverCard('Platform Spend Reconciliation','Platform, overpayment and actual spend.','mgOverpayment')}</div>`;
-  el('main').innerHTML=pageScaffold('growth','Marketing Efficiency','Spend, actual cost and paid activity',6,body);
+  el('main').innerHTML=pageScaffold('growth','Marketing & Growth Efficiency','Connect platform spend, actual cost and paid user activity',6,body);
   setNote('growth');
   const n=el('note-growth'); if(n)n.textContent='Monthly trend view; Monthly/YTD toggle does not change these charts.';
   renderGrowthCharts();
@@ -2664,7 +2759,7 @@ function renderCash(){
     <div class="table-wrap"><table><thead><tr><th>Month</th><th>Type</th><th>Scenario</th><th>Net Revenue</th><th>Gross Cash Burn</th><th>Net Cash Burn</th><th>Opening</th><th>Closing</th><th>Notes</th></tr></thead><tbody id="cashTable"></tbody></table></div>`;
   el('main').innerHTML=pageScaffold('cash','Cash & Runway','Liquidity pressure and scenario planning for management decisions',7,body);
   setNote('cash');
-  const n=el('note-cash'); if(n)n.textContent=`Static monthly scenario view; forecast starts from ${cashForecastStart()||'the next forecast month'}. Monthly/YTD toggle does not change these charts.`;
+  const n=el('note-cash'); if(n)n.textContent=`Scenario view; forecast starts from ${cashForecastStart()||'the next forecast month'}.`;
   renderCashCharts();
   const selector=el('cashScenarioSelector');
   if(selector) selector.onchange=()=>{window.cashScenarioSelected=selector.value; renderCashBurnChart(); renderCashTable(); const sub=el('cashBurnSub'); if(sub) sub.textContent=`${window.cashScenarioSelected} scenario; ${cashForecastLabel()} shaded as forecast`;};
@@ -2772,12 +2867,12 @@ function renderCashBurnChart(){
   const datasets=[
     {...dsBar('Net Revenue',netRevenue,C.navy,'cashflow'),order:2,maxBarThickness:34},
     {...dsBar('Gross Cash Burn',grossBurn,'rgba(200,79,94,0.68)','cashflow'),borderColor:'rgba(200,79,94,0.68)',order:2,maxBarThickness:34},
-    {...dsLine('Net Cash Burn',netBurn,C.magenta),order:1,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:netBurn.map(v=>v<0?C.red:C.green),pointBorderColor:'#fff',pointBorderWidth:2,borderWidth:2.75,segment:{borderColor:ctx=>(ctx.p0.parsed.y<0||ctx.p1.parsed.y<0)?C.red:C.green}}
+    {...dsLine('Net Cash Burn',netBurn,C.magenta),_hideDataLabels:true,order:1,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:netBurn.map(v=>v<0?C.red:C.green),pointBorderColor:'#fff',pointBorderWidth:2,borderWidth:2.75,segment:{borderColor:ctx=>(ctx.p0.parsed.y<0||ctx.p1.parsed.y<0)?C.red:C.green}}
   ];
   const opts=baseOptions('usd',false);
   opts.plugins={...opts.plugins,tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${fUSD(ctx.parsed.y,true)}`}}};
-  opts.scales={x:{grid:{display:false},ticks:{font:{size:10,weight:700}},stacked:true},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd'),stacked:true}};
-  chart('cashBurn',{type:'bar',data:{labels:months,datasets},options:opts,plugins:[cashForecastShadePlugin(months,cashForecastStart())]});
+  opts.scales={x:{grid:{display:false},ticks:{color:C.axis,font:{size:10,weight:700}},stacked:true},y:{beginAtZero:false,grid:{color:C.grid},ticks:{...yTicks('usd'),color:C.axis},stacked:true}};
+  chart('cashBurn',{type:'bar',data:{labels:months,datasets},options:withBarDataLabels(opts,{format:'usdCompact',color:C.axis}),plugins:[cashForecastShadePlugin(months,cashForecastStart()),barDataLabelPlugin]});
   const sub=el('cashBurnSub'); if(sub) sub.textContent=`${selected} scenario; ${cashForecastLabel()} shaded as forecast`;
 }
 function renderCashScenarioChart(){
@@ -2797,7 +2892,7 @@ function renderCashScenarioChart(){
   });
   const opts=baseOptions('usd',false);
   opts.plugins={...opts.plugins,tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${fUSD(ctx.parsed.y,true)}`}}};
-  opts.scales={x:{grid:{display:false},ticks:{font:{size:10,weight:700}}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}};
+  opts.scales={x:{grid:{display:false},ticks:{color:C.axis,font:{size:10,weight:700}}},y:{beginAtZero:false,grid:{color:C.grid},ticks:{...yTicks('usd'),color:C.axis}}};
   chart('cashScenario',{type:'line',data:{labels:months,datasets},options:opts,plugins:[cashNegativeZonePlugin(),cashForecastShadePlugin(months,cashForecastStart())]});
 }
 function cashNoteHtml(note){
