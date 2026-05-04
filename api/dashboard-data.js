@@ -1,4 +1,5 @@
 const DEFAULT_SHEET_ID = "1010WS28NGeh6CkQlXX6GoeLfewA_EYDYkp-y-84QqDo";
+const { requireSession } = require("./_auth");
 
 const SHEETS = {
   CONFIG: "Config",
@@ -641,6 +642,8 @@ function buildDash(raw, sourceMode = "service_account") {
 module.exports = async function handler(req, res) {
   try {
     res.setHeader("Cache-Control", "no-store, max-age=0");
+
+    if (!requireSession(req, res)) return;
 
     const { sheetId, sheets, sourceMode } = await getGoogleSheetsClient();
     const raw = await readAllRequiredTabs(sheets, sheetId);
