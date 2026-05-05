@@ -1,6 +1,6 @@
-# Shikho Finance Dashboard Automated
+# Shikho MIS Analytics
 
-Standalone Vercel project for the Shikho Finance Governance Dashboard.
+Standalone Vercel project for Shikho MIS Analytics.
 
 ## Data Source
 
