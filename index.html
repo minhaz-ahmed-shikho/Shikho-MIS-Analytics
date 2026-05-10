@@ -3084,7 +3084,7 @@ function salesContributionSubtitle(){
   if(!currentIx.length) return salesNoDataMessage();
   const priorPeriod=prevYearMonth(state.period);
   const priorIx=salesIndexesForPeriod(priorPeriod,state.view);
-  if(priorIx.length) return `${salesPeriodText()} vs ${salesPeriodText(priorPeriod,state.view)}; click current-period bars for calculation.`;
+  if(priorIx.length) return `${salesPeriodText()} vs ${salesPeriodText(priorPeriod,state.view)}; click any bar for calculation.`;
   return `${salesPeriodText()} shown only; prior-year Sales_Team data unavailable. Click bars for calculation.`;
 }
 function renderSales(){
@@ -3104,9 +3104,8 @@ function renderSalesCharts(){
   const priorIx=salesIndexesForPeriod(priorPeriod,state.view);
   const currentContributionValues=teams.map(t=>salesContributionMetricForIndexes(t.id,currentIx));
   const priorContributionValues=teams.map(t=>salesContributionMetricForIndexes(t.id,priorIx));
-  const currentContributionDatasetIndex=priorIx.length?1:0;
   const contributionDatasets=priorIx.length
-    ? [dsBar(salesPeriodText(priorPeriod,state.view),priorContributionValues,C.blueLight),dsBar(salesPeriodText(),currentContributionValues,C.navy)]
+    ? [dsBar(salesPeriodText(priorPeriod,state.view),priorContributionValues,C.magenta),dsBar(salesPeriodText(),currentContributionValues,C.navy)]
     : [dsBar(salesPeriodText(),currentContributionValues,C.navy)];
   chart('salesContributionBar',{
     type:'bar',
@@ -3116,13 +3115,14 @@ function renderSalesCharts(){
       interaction:{mode:'nearest',intersect:true},
       onHover:(event,elements,chartObj)=>{
         const active=chartObj.getElementsAtEventForMode(event,'nearest',{intersect:true},true);
-        event.native.target.style.cursor=(active.length && active[0].datasetIndex===currentContributionDatasetIndex)?'pointer':'default';
+        event.native.target.style.cursor=active.length?'pointer':'default';
       },
       onClick:(event,elements,chartObj)=>{
         const active=chartObj.getElementsAtEventForMode(event,'nearest',{intersect:true},true);
         if(!active.length) return;
-        if(active[0].datasetIndex!==currentContributionDatasetIndex) return;
-        openSalesContributionDrilldown(teams[active[0].index].id);
+        const point=active[0];
+        const clickedPrior=priorIx.length && point.datasetIndex===0;
+        openSalesContributionDrilldown(teams[point.index].id,clickedPrior?priorPeriod:state.period,state.view);
       }
     }),
     plugins:[barDataLabelPlugin]
@@ -3192,9 +3192,9 @@ function renderSalesTable(){
   const totals={revenue:sum(rows.map(r=>r.revenue)),volume:sum(rows.map(r=>r.volume)),cost:sum(rows.map(r=>r.cost)),hc:sum(rows.map(r=>r.hc))}; totals.aov=totals.volume?totals.revenue/totals.volume:null; totals.roi=totals.cost?totals.revenue/totals.cost:null; totals.contrib=totals.hc?(totals.revenue-totals.cost)/totals.hc:null;
   el('salesTable').innerHTML=rows.map(r=>`<tr><td>${r.t.label}</td><td>${fUSD(r.revenue,false)}</td><td>${fInt(r.volume)}</td><td>${fUSD(r.aov,false)}</td><td>${fInt(r.hc)}</td><td>${fUSD(r.cost,false)}</td><td>${fRatio(r.roi)}</td><td>${fUSD(r.contrib,false)}</td></tr>`).join('')+`<tr class="total-row"><td>Total</td><td>${fUSD(totals.revenue,false)}</td><td>${fInt(totals.volume)}</td><td>${fUSD(totals.aov,false)}</td><td>${fInt(totals.hc)}</td><td>${fUSD(totals.cost,false)}</td><td>${fRatio(totals.roi)}</td><td>${fUSD(totals.contrib,false)}</td></tr>`;
 }
-function openSalesContributionDrilldown(teamId){
+function openSalesContributionDrilldown(teamId,period=state.period,view=state.view){
   const teams=salesTeams(); const team=teams.find(t=>t.id===teamId)||teams[0];
-  const ix=selectedSalesIndexes();
+  const ix=salesIndexesForPeriod(period,view);
   if(!ix.length) return;
   const revenue=sum(ix.map(i=>salesTeamRevenue(teamId,i)));
   const salary=sum(ix.map(i=>salesTeamSalary(teamId,i)));
@@ -3204,7 +3204,7 @@ function openSalesContributionDrilldown(teamId){
   const contributionPerAgent=headcount?contribution/headcount:null;
   const modal=ensureModal(); modal.classList.add('open');
   el('drillTitle').textContent='Contribution per Agent Calculation';
-  el('drillSub').textContent=`${team.label} | ${state.view==='ytd'?'YTD '+monthLabelLong(state.period):monthLabelLong(state.period)}`;
+  el('drillSub').textContent=`${team.label} | ${salesPeriodText(period,view)}`;
   const rows=[
     {label:'Revenue',amount:revenue,type:'positive'},
     {label:'Less: Salaries',amount:-salary,type:'negative'},
