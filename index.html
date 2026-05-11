@@ -123,6 +123,9 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .metric-pills{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
 .pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;color:var(--muted);box-shadow:var(--shadow-soft)}
 .pill strong{color:var(--navy)}
+.sales-note-row{display:flex;align-items:center;gap:8px;margin:-2px 0 14px}
+.sales-forecast-note{display:inline-flex;align-items:center;gap:7px;width:max-content;max-width:100%;border:1px solid color-mix(in srgb,var(--amber) 42%,var(--line));background:color-mix(in srgb,var(--amber) 9%,var(--surface));color:var(--text);border-radius:999px;padding:6px 10px;font-size:11px;font-weight:850;box-shadow:var(--shadow-soft)}
+.sales-forecast-note svg{width:13px;height:13px;color:var(--amber);stroke-width:2.5;flex:0 0 auto}
 .rev-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:22px}
 .rev-kpi-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;min-height:118px}
 .rev-kpi-card:before{content:'';position:absolute;inset:0 auto 0 0;width:5px;background:var(--navy)}
@@ -2274,7 +2277,7 @@ function renderExecCharts(){
 }
 function plMarginCard(){
   const action=`${trendRangeControl('plMargin',plTrendMonths())}<div class="chart-filter" id="plMarginToggles"></div>`;
-  return `<div class="chart-card"><div class="${chartHeaderClass(action)}"><div><div class="chart-card-title-row"><div class="chart-title">Margin vs Budget</div></div><div class="chart-sub">GM% and EBITDA% trend for the selected year; budget lines appear only where budget exists</div></div><div class="${chartActionClass(action)}">${action}</div></div><div class="chart-body tall"><canvas id="plMargin"></canvas></div></div>`;
+  return `<div class="chart-card"><div class="${chartHeaderClass(action)}"><div><div class="chart-card-title-row"><div class="chart-title">Margin vs Budget</div></div><div class="chart-sub">Monthly GM% and EBITDA% trend for the selected year; budget lines appear only where budget exists</div></div><div class="${chartActionClass(action)}">${action}</div></div><div class="chart-body tall"><canvas id="plMargin"></canvas></div></div>`;
 }
 function renderPL(){
   state.plExpanded=state.plExpanded||{};
@@ -2350,10 +2353,10 @@ function renderPLCharts(){
   chart('plRev',{type:'bar',data:{labels,datasets:revDatasets},options:withBarDataLabels({...baseOptions('usd',false),onHover:(event,elements)=>{event.native.target.style.cursor=(hasBudgetGR&&elements.length)?'pointer':'default';},onClick:(event,elements)=>{if(!hasBudgetGR||!elements.length)return; const p=months[elements[0].index]; if(p) openPLGrossRevenueBudgetDrilldown(p,'channel');}}),plugins:[barDataLabelPlugin]});
   renderPLMarginToggles();
   state.plMarginVisible=state.plMarginVisible||{gm:true,ebitda:true};
-  const gm=months.map(m=>plPctSeriesValue('actual','GM%','Gross Margin',m));
-  const bgm=months.map(m=>plPctSeriesValue('budget','GM%','Gross Margin',m));
-  const eb=months.map(m=>plPctSeriesValue('actual','EBITDA %','EBITDA',m));
-  const beb=months.map(m=>plPctSeriesValue('budget','EBITDA %','EBITDA',m));
+  const gm=months.map(m=>plPctValue('actual','GM%','Gross Margin',m,'monthly'));
+  const bgm=months.map(m=>plPctValue('budget','GM%','Gross Margin',m,'monthly'));
+  const eb=months.map(m=>plPctValue('actual','EBITDA %','EBITDA',m,'monthly'));
+  const beb=months.map(m=>plPctValue('budget','EBITDA %','EBITDA',m,'monthly'));
   const marginDatasets=[];
   if(state.plMarginVisible.gm!==false){
     marginDatasets.push(dsLine('GM%',gm,C.navy));
@@ -3097,9 +3100,54 @@ function salesContributionSubtitle(){
   if(priorIx.length) return `${salesPeriodText()} vs ${salesPeriodText(priorPeriod,state.view)}; click any bar for calculation.`;
   return `${salesPeriodText()} shown only; prior-year Sales_Team data unavailable. Click bars for calculation.`;
 }
+const SALES_INCENTIVE_FORECAST_PERIOD='Apr-26';
+const SALES_INCENTIVE_FORECAST_NOTE='April incentives are forecasted; final payouts may vary.';
+function salesIncentiveForecastApplies(period=state.period){return period===SALES_INCENTIVE_FORECAST_PERIOD;}
+function salesIncentiveForecastChipHtml(){return `<span class="sales-forecast-note">${icon('alert','sales-note-icon')}${SALES_INCENTIVE_FORECAST_NOTE}</span>`;}
+function salesIncentiveForecastNoteHtml(period=state.period){return salesIncentiveForecastApplies(period)?`<div class="sales-note-row">${salesIncentiveForecastChipHtml()}</div>`:'';}
+function salesContributionValueForSeries(id,i){return i<0?null:(id==='avg'?salesAverageContributionPerAgent(i):salesContributionPerAgent(id,i));}
+function salesContributionYoyOptions(){return salesSeriesOptions('salesContributionActive');}
+function salesContributionYoyMetric(){
+  const valid=salesContributionYoyOptions().map(t=>t.id);
+  if(!valid.includes(state.salesContributionYoyMetric)) state.salesContributionYoyMetric='avg';
+  return state.salesContributionYoyMetric;
+}
+function setSalesContributionYoyMetric(value){
+  state.salesContributionYoyMetric=value;
+  renderSales();
+}
+function salesContributionYoyControl(){
+  const selected=salesContributionYoyMetric();
+  return `<select class="small-select" aria-label="Contribution YoY metric" onchange="setSalesContributionYoyMetric(this.value)">${salesContributionYoyOptions().map(t=>`<option value="${t.id}" ${selected===t.id?'selected':''}>${h(t.label)}</option>`).join('')}</select>`;
+}
+function salesContributionYoySeries(){
+  const m=DASH.sales.months||[];
+  const selected=salesContributionYoyMetric();
+  const metric=salesContributionYoyOptions().find(t=>t.id===selected)||salesContributionYoyOptions()[0];
+  const current=monthYear(state.period);
+  const end=PERIOD_MONTHS.indexOf(current.mon);
+  const months=end>=0?PERIOD_MONTHS.slice(0,end+1):[];
+  const currentPeriods=months.map(mon=>`${mon}-${String(current.yr-2000).padStart(2,'0')}`);
+  const priorPeriods=months.map(mon=>`${mon}-${String(current.yr-2001).padStart(2,'0')}`);
+  return {
+    labels:months,
+    metric,
+    currentYear:current.yr,
+    priorYear:current.yr-1,
+    currentData:currentPeriods.map(p=>salesContributionValueForSeries(selected,idx(m,p))),
+    priorData:priorPeriods.map(p=>salesContributionValueForSeries(selected,idx(m,p)))
+  };
+}
+function salesContributionYoySubtitle(){
+  const s=salesContributionYoySeries();
+  if(!hasSeriesData(s.currentData)) return salesNoDataMessage();
+  return hasSeriesData(s.priorData)
+    ? `${s.currentYear} vs ${s.priorYear}; monthly path through ${monthYear(state.period).mon}.`
+    : `${s.currentYear} monthly path; prior-year Sales_Team data unavailable.`;
+}
 function renderSales(){
   const labels=chartMonthsFromSource(DASH.sales.months);
-  const body=`<div class="chart-grid">${salesCard('Contribution per Agent','Revenue less salaries + incentives, divided by headcount; click bars for calculation','salesContributionBar',null,true,drillNote())}${salesCard('Sales ROI','Sales ROI = revenue generated ÷ sales salaries and incentives.','salesRoiLine','salesRoiActive',true,trendRangeControl('salesRoiLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent Trend','Contribution per agent = revenue per agent minus salary and incentive cost per agent.','salesContributionTrend','salesContributionActive',true,trendRangeControl('salesContributionTrend',labels))}${salesCard('Sales Volume per Agent by Team','Sales volume per agent = sales volume ÷ sales team headcount.','salesVolumeAgentLine','salesVolumeActive',true,trendRangeControl('salesVolumeAgentLine',labels))}</div><div class="chart-grid full">${salesCard('Sales Team Headcount','Total headcount trend; selected month is highlighted; click any bar to see team breakdown','salesHeadcount',null,true,drillNote())}</div><div class="table-wrap"><table><thead><tr><th>Team</th><th>Revenue</th><th>Sales Volume</th><th>AOV</th><th>Headcount</th><th>Salaries + Incentives</th><th>Sales ROI</th><th>Contribution/Agent</th></tr></thead><tbody id="salesTable"></tbody></table></div>`;
+  const body=`${salesIncentiveForecastNoteHtml()}<div class="chart-grid">${salesCard('Contribution per Agent','Revenue less salaries + incentives, divided by headcount; click bars for calculation','salesContributionBar',null,true,drillNote())}${salesCard('Sales ROI','Sales ROI = revenue / sales salaries and incentives.','salesRoiLine','salesRoiActive',true,trendRangeControl('salesRoiLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent Trend','Contribution per agent = revenue per agent minus salary and incentive cost per agent.','salesContributionTrend','salesContributionActive',true,trendRangeControl('salesContributionTrend',labels))}${salesCard('Sales Volume per Agent by Team','Sales volume per agent = sales volume / sales team headcount.','salesVolumeAgentLine','salesVolumeActive',true,trendRangeControl('salesVolumeAgentLine',labels))}</div><div class="chart-grid full">${salesCard('Contribution per Agent YoY',salesContributionYoySubtitle(),'salesContributionYoyLine',null,true,salesContributionYoyControl())}</div><div class="chart-grid full">${salesCard('Sales Team Headcount','Total headcount trend; selected month is highlighted; click any bar to see team breakdown','salesHeadcount',null,true,drillNote())}</div><div class="table-wrap"><table><thead><tr><th>Team</th><th>Revenue</th><th>Sales Volume</th><th>AOV</th><th>Headcount</th><th>Salaries + Incentives</th><th>Sales ROI</th><th>Contribution/Agent</th></tr></thead><tbody id="salesTable"></tbody></table></div>`;
   el('main').innerHTML=pageScaffold('sales','Sales Team Efficiency','Productivity, ROI and headcount for revenue execution',5,body);
   setNote('sales'); renderSalesCharts(); renderSalesTable();
 }
@@ -3107,7 +3155,7 @@ function renderSalesCharts(){
   const m=DASH.sales.months, teams=salesTeams(), labels=chartMonthsFromSource(m);
   const currentIx=selectedSalesIndexes();
   if(!currentIx.length){
-    ['salesContributionBar','salesRoiLine','salesContributionTrend','salesVolumeAgentLine','salesHeadcount'].forEach(id=>setChartNoData(id));
+    ['salesContributionBar','salesRoiLine','salesContributionTrend','salesContributionYoyLine','salesVolumeAgentLine','salesHeadcount'].forEach(id=>setChartNoData(id));
     return;
   }
   const priorPeriod=prevYearMonth(state.period);
@@ -3155,6 +3203,15 @@ function renderSalesCharts(){
   });
   const contributionRange=applyTrendRange('salesContributionTrend',labels,trendDatasets);
   lineChart('salesContributionTrend',contributionRange.labels,contributionRange.datasets,'usd');
+
+  const yoy=salesContributionYoySeries();
+  if(!hasSeriesData(yoy.currentData)){
+    setChartNoData('salesContributionYoyLine');
+  }else{
+    const yoyDatasets=[dsLine(`${yoy.currentYear} ${yoy.metric.label}`,yoy.currentData,C.navy)];
+    if(hasSeriesData(yoy.priorData)) yoyDatasets.push({...dsLine(`${yoy.priorYear} ${yoy.metric.label}`,yoy.priorData,C.magenta),borderDash:[6,5]});
+    lineChart('salesContributionYoyLine',yoy.labels,yoyDatasets,'usd');
+  }
 
   const volumeActive=salesActiveSet('salesVolumeActive');
   const volumeOptions=salesSeriesOptions('salesVolumeActive');
@@ -3223,7 +3280,7 @@ function openSalesContributionDrilldown(teamId,period=state.period,view=state.vi
     {label:'Headcount',amount:headcount,type:'count'},
     {label:'Contribution per Agent',amount:contributionPerAgent,type:'perAgent'}
   ];
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Calculation Step</th><th>Value</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.type==='total'||r.type==='perAgent'?'total-row':''}"><td>${r.label}</td><td>${r.type==='count'?fInt(r.amount):fUSD(r.amount,false)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  el('drillBody').innerHTML=`${salesIncentiveForecastNoteHtml(period)}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Calculation Step</th><th>Value</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.type==='total'||r.type==='perAgent'?'total-row':''}"><td>${r.label}</td><td>${r.type==='count'?fInt(r.amount):fUSD(r.amount,false)}</td></tr>`).join('')}</tbody></table></div></div>`;
   const chartRows=rows.filter(r=>['positive','negative','total','perAgent'].includes(r.type));
   chart('execDrillChart',{
     type:'bar',
