@@ -1372,6 +1372,7 @@ function metricIcon(label){
   if(s.includes('revenue') || s.includes('aov')) return 'coins';
   if(s.includes('margin') || s.includes('ebitda') || s.includes('roi')) return 'trend';
   if(s.includes('sales') || s.includes('agent') || s.includes('headcount')) return 'users';
+  if(s.includes('usd') || s.includes('agency') || s.includes('vat') || s.includes('tax')) return 'scale';
   if(s.includes('cost') || s.includes('burn')) return 'receipt';
   if(s.includes('split') || s.includes('repeat')) return 'scale';
   return 'activity';
@@ -1382,6 +1383,7 @@ const PAGES=[
   ['pl','Budget vs Actual Performance','Revenue, margin and EBITDA control against budget','activity'],
   ['revenue','Revenue Analysis','Channel, course and repeat revenue drivers over time','coins'],
   ['costs','Cost & Margins','COGS, payroll and operating leverage','receipt'],
+  ['usd','USD Payment Structure','Dollar purchase cost build-up and service tax treatment','scale'],
   ['sales','Sales Team Efficiency','Sales productivity, ROI, headcount and package mix','users'],
   ['growth','Marketing & Growth Efficiency','Platform spend, actual spend and paid user activity','target'],
   ['cash','Cash & Runway','Cash balance, burn and scenario risk','wallet']
@@ -1787,6 +1789,7 @@ function setNote(page){
     pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`,
     revenue: monthly?'Selected month compared with prior year and prior month.':'YTD revenue mix through selected month.',
     costs: monthly?'Selected month cost intensity and margin movement.':'YTD cost intensity and operating leverage.',
+    usd:'Selected-month USD payment build-up; Monthly/YTD toggle does not change this page.',
     sales: monthly?'Selected month sales productivity and headcount.':'YTD sales productivity and ROI.',
     growth:'Monthly trend view; Monthly/YTD toggle does not change these charts.',
     cash:`Scenario view; forecast starts from ${cashForecastStart()||'the next forecast month'}.`
@@ -2960,6 +2963,163 @@ function openAccrualDrilldown(layerId,isPrior){
   el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Cost Item</th><th>Amount</th><th>Share</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.amount,false)}</td><td>${fPct(total?r.amount/total*100:null)}</td></tr>`).join('')}<tr class="total-row"><td>Total</td><td>${fUSD(total,false)}</td><td>100.0%</td></tr></tbody></table></div></div>`;
   barChart('execDrillChart',rows.map(r=>r.label),[dsBar(layer.title,rows.map(r=>r.amount),ctx.color||C.navy)],'usd',false);
 }
+const USD_PAYMENT_MODES={
+  total:{label:'Total',rowType:'Grand_Total',service:'All Services'},
+  media:{label:'Media Buying',rowType:'Service_Total',service:'Media Buying'},
+  content:{label:'Digital Content',rowType:'Service_Total',service:'Digital Content'}
+};
+function usdPaymentMode(){return USD_PAYMENT_MODES[state.usdPaymentMode]?state.usdPaymentMode:'total';}
+function usdPaymentPeriodData(period=state.period){return DASH?.usdPayments?.byPeriod?.[period]||null;}
+function usdPaymentRows(period=state.period){return usdPaymentPeriodData(period)?.rows||[];}
+function usdPaymentCategoryRows(period=state.period){return usdPaymentPeriodData(period)?.categories||[];}
+function usdPaymentSelectedRow(mode=usdPaymentMode(),period=state.period){
+  const cfg=USD_PAYMENT_MODES[mode]||USD_PAYMENT_MODES.total;
+  const data=usdPaymentPeriodData(period);
+  if(!data) return null;
+  if(cfg.rowType==='Grand_Total') return data.grandTotal||null;
+  return (data.serviceTotals||[]).find(row=>row.service===cfg.service)||null;
+}
+function usdPaymentAvailableText(){
+  const periods=DASH?.usdPayments?.periods||[];
+  return periods.length?`Available periods: ${periods.join(', ')}.`:'No USD_Payment_Summary periods are available.';
+}
+function setUsdPaymentMode(mode){
+  if(!USD_PAYMENT_MODES[mode]) return;
+  state.usdPaymentMode=mode;
+  render();
+}
+function usdPaymentSelector(){
+  const active=usdPaymentMode();
+  return `<div class="btn-group">${Object.entries(USD_PAYMENT_MODES).map(([key,cfg])=>`<button class="${key===active?'active':''}" onclick="setUsdPaymentMode('${key}')">${cfg.label}</button>`).join('')}</div>`;
+}
+function usdRateText(value, fallback='Mixed'){
+  return value==null?fallback:fPct(value,value%1?2:0);
+}
+function usdPaymentKpi(label,value,meta='',status='USD',format=fUSD){
+  return `<div class="kpi-card"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status watch">${status}</div></div><div class="kpi-value">${format(value)}</div><div class="kpi-meta">${meta?`<span class="badge">${meta}</span>`:''}</div></div>`;
+}
+function usdPaymentWaterfallSteps(row){
+  if(!row) return [];
+  const base=row.vendorBillUsd||0;
+  const additions=[
+    {label:'BB Rate Uplift',kind:'add',amount:row.bbRateUpliftUsd||0},
+    {label:'Agency Commission',kind:'add',amount:row.agencyCommissionUsd||0},
+    {label:'VAT',kind:'add',amount:row.vatUsd||0}
+  ];
+  const subtotal=base+sum(additions.map(s=>s.amount));
+  const rounding=(row.allInCostUsd||0)-subtotal;
+  if(Math.abs(rounding)>=0.5) additions.push({label:'Rounding',kind:'add',amount:rounding});
+  return [
+    {label:'Vendor Bill',kind:'start',amount:base},
+    ...additions,
+    {label:'All-in Cost',kind:'end',amount:row.allInCostUsd||0}
+  ];
+}
+function renderUsdPaymentWaterfall(row){
+  const steps=usdPaymentWaterfallSteps(row);
+  let running=0;
+  const ranges=steps.map(step=>{
+    if(step.kind==='start'){
+      running=step.amount||0;
+      return [0,running];
+    }
+    if(step.kind==='end') return [0,step.amount||0];
+    const start=running;
+    running+=(step.amount||0);
+    return [Math.min(start,running),Math.max(start,running)];
+  });
+  chart('usdPaymentWaterfall',{
+    type:'bar',
+    data:{labels:steps.map(s=>s.label),datasets:[{
+      label:'USD equivalent',
+      data:ranges,
+      _amounts:steps.map(s=>s.amount),
+      _labelValues:steps.map(s=>s.amount),
+      _types:steps.map(s=>s.kind==='add'?'cost':'checkpoint'),
+      backgroundColor:(context)=>{
+        const step=steps[context.dataIndex];
+        if(step.kind==='start'||step.kind==='end') return C.navy;
+        if(step.label==='Rounding') return C.grey;
+        return costGradient(context.chart,false);
+      },
+      borderColor:(context)=>{
+        const step=steps[context.dataIndex];
+        if(step.kind==='start'||step.kind==='end') return C.navy;
+        if(step.label==='Rounding') return C.grey;
+        return costBorder(false);
+      },
+      hoverBackgroundColor:(context)=>{
+        const step=steps[context.dataIndex];
+        if(step.kind==='start'||step.kind==='end') return C.navy2;
+        if(step.label==='Rounding') return C.grey;
+        return costGradient(context.chart,true);
+      },
+      hoverBorderColor:(context)=>{
+        const step=steps[context.dataIndex];
+        if(step.kind==='start'||step.kind==='end') return C.navy2;
+        if(step.label==='Rounding') return C.grey;
+        return costBorder(true);
+      },
+      borderWidth:1,
+      borderRadius:6,
+      borderSkipped:false,
+      maxBarThickness:70
+    }]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{top:28,bottom:16}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},
+        y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}
+      }
+    },
+    plugins:[waterfallDataLabelPlugin]
+  });
+}
+function usdPaymentCategoryTable(period=state.period){
+  const rows=usdPaymentCategoryRows(period);
+  const total=usdPaymentSelectedRow('total',period);
+  if(!rows.length) return `<tbody><tr><td colspan="10">${noDataStateHtml(`No category rows are available for ${monthLabelLong(period)}.`)}</td></tr></tbody>`;
+  const body=rows.map(r=>`<tr><td>${h(r.misCategory)}</td><td>${h(r.service)}</td><td>${fUSD(r.vendorBillUsd,false)}</td><td>${fUSD(r.bbRateCostUsd,false)}</td><td>${fUSD(r.agencyCommissionUsd,false)}</td><td>${fUSD(r.taxUsd,false)}</td><td>${fUSD(r.vatUsd,false)}</td><td>${fUSD(r.allInCostUsd,false)}</td><td>${fUSD(r.extraPaymentOverBbUsd,false)}</td><td>${fPct(r.allInUpliftPct,0)}</td></tr>`).join('');
+  const totalRow=total?`<tr class="total-row"><td>Total</td><td>${h(total.service)}</td><td>${fUSD(total.vendorBillUsd,false)}</td><td>${fUSD(total.bbRateCostUsd,false)}</td><td>${fUSD(total.agencyCommissionUsd,false)}</td><td>${fUSD(total.taxUsd,false)}</td><td>${fUSD(total.vatUsd,false)}</td><td>${fUSD(total.allInCostUsd,false)}</td><td>${fUSD(total.extraPaymentOverBbUsd,false)}</td><td>${fPct(total.allInUpliftPct,0)}</td></tr>`:'';
+  return `<tbody>${body}${totalRow}</tbody>`;
+}
+function usdPaymentInsights(row){
+  const taxText=row?.taxUsd?`${fUSD(row.taxUsd,false)} tax disclosed within agency/tax treatment.`:'Tax is disclosed but not added as a separate waterfall step.';
+  return `<div class="insight-grid"><div class="insight-card"><div class="insight-head"><span class="insight-icon">${icon('scale')}</span>Service Rules</div><div class="insight-body"><ul><li>Media Buying uses 15% VAT and 0.60% tax treatment.</li><li>Digital Content uses 5% VAT and 0% tax treatment.</li></ul></div></div><div class="insight-card"><div class="insight-head"><span class="insight-icon">${icon('receipt')}</span>Cost Build-up</div><div class="insight-body"><ul><li>Waterfall reconciles Vendor Bill to All-in Cost using BB rate uplift, agency commission, VAT, and rounding if needed.</li><li>${taxText}</li></ul></div></div><div class="insight-card"><div class="insight-head"><span class="insight-icon">${icon('wallet')}</span>CEO Read</div><div class="insight-body"><ul><li>Extra payment over BB cost is ${fUSD(row?.extraPaymentOverBbUsd,false)}.</li><li>All-in uplift is ${fPct(row?.allInUpliftPct,0)} on the internal USD-equivalent basis.</li></ul></div></div></div>`;
+}
+function renderUsdPayments(){
+  state.usdPaymentMode=usdPaymentMode();
+  const row=usdPaymentSelectedRow();
+  const selectedCfg=USD_PAYMENT_MODES[state.usdPaymentMode];
+  if(!row){
+    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">USD Payment Structure</div><div class="chart-sub">${usdPaymentAvailableText()}</div></div></div><div class="chart-body">${noDataStateHtml(`No USD_Payment_Summary row is available for ${monthLabelLong(state.period)}.`)}</div></div></div>`;
+    el('main').innerHTML=pageScaffold('usd','USD Payment Structure','Dollar purchase cost build-up and service tax treatment',5,body);
+    setNote('usd');
+    return;
+  }
+  const vatTax=(row.vatUsd||0)+(row.taxUsd||0);
+  const kpis=[
+    usdPaymentKpi('Vendor Bill USD',row.vendorBillUsd,'Original vendor invoice'),
+    usdPaymentKpi('BB-rate Cost',row.bbRateCostUsd,`BB rate BDT ${fInt(row.bbDollarRate)}`),
+    usdPaymentKpi('Agency Commission',row.agencyCommissionUsd,`BDT ${fInt(row.agencyCommissionBdtPerUsd)} / USD`),
+    usdPaymentKpi('VAT + Tax',vatTax,'Tax shown as informational'),
+    usdPaymentKpi('All-in Cost',row.allInCostUsd,'Internal USD-equivalent basis'),
+    usdPaymentKpi('Extra Payment',row.extraPaymentOverBbUsd,'Over BB-rate cost'),
+    usdPaymentKpi('All-in Uplift',row.allInUpliftPct,`${selectedCfg.label} payment structure`,'%',v=>fPct(v,0))
+  ].join('');
+  const waterfallAction=usdPaymentSelector();
+  const tableTitle=`Category Breakdown (${monthLabelLong(state.period)})`;
+  const body=`<div class="metric-pills"><span class="pill"><strong>Selected:</strong> ${selectedCfg.label}</span><span class="pill"><strong>VAT:</strong> ${usdRateText(row.vatRate)}</span><span class="pill"><strong>Tax:</strong> ${usdRateText(row.taxRate,'Mixed by service')}</span></div><div class="kpi-grid">${kpis}</div><div class="chart-grid full"><div class="chart-card"><div class="${chartHeaderClass(waterfallAction)}"><div><div class="chart-card-title-row"><div class="chart-title">USD Payment Waterfall</div></div><div class="chart-sub">${monthLabelLong(state.period)} | ${selectedCfg.label} | Tax is disclosed outside the additive waterfall</div></div><div class="${chartActionClass(waterfallAction)}">${waterfallAction}</div></div><div class="chart-body tall"><canvas id="usdPaymentWaterfall"></canvas></div></div></div><div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">${tableTitle}</div><div class="pl-table-note">Sheet values are used exactly; totals are not recomputed from category rows.</div></div></div><table><thead><tr><th>MIS Category</th><th>Service</th><th>Vendor Bill</th><th>BB-rate Cost</th><th>Agency Commission</th><th>Tax</th><th>VAT</th><th>All-in Cost</th><th>Extra Payment</th><th>Uplift</th></tr></thead>${usdPaymentCategoryTable()}</table></div>${usdPaymentInsights(row)}`;
+  el('main').innerHTML=pageScaffold('usd','USD Payment Structure','Dollar purchase cost build-up and service tax treatment',5,body);
+  setNote('usd');
+  renderUsdPaymentWaterfall(row);
+}
 function salesTeams(){return [
   {id:'dhaka',label:'Dhaka Telesales',color:C.navy},
   {id:'jessore',label:'Jessore Telesales',color:C.magenta},
@@ -3903,7 +4063,7 @@ function renderWaterfallStepDrilldown(cfg,ctx){
   else renderWaterfallStepSingleDrilldown(cfg,ctx);
 }
 
-function render(){renderNav(); el('topbarTitle').textContent='Shikho MIS Analytics'; const current=PAGES.find(p=>p[0]===state.page); const subtitle=el('topbarSubtitle'); if(subtitle) subtitle.textContent=current?current[2]:'Finance control room'; Object.keys(charts).forEach(destroy); if(state.page==='exec')renderExec(); if(state.page==='pl')renderPL(); if(state.page==='revenue')renderRevenue(); if(state.page==='costs')renderCosts(); if(state.page==='sales')renderSales(); if(state.page==='growth')renderGrowth(); if(state.page==='cash')renderCash(); renderNav();}
+function render(){renderNav(); el('topbarTitle').textContent='Shikho MIS Analytics'; const current=PAGES.find(p=>p[0]===state.page); const subtitle=el('topbarSubtitle'); if(subtitle) subtitle.textContent=current?current[2]:'Finance control room'; Object.keys(charts).forEach(destroy); if(state.page==='exec')renderExec(); if(state.page==='pl')renderPL(); if(state.page==='revenue')renderRevenue(); if(state.page==='costs')renderCosts(); if(state.page==='usd')renderUsdPayments(); if(state.page==='sales')renderSales(); if(state.page==='growth')renderGrowth(); if(state.page==='cash')renderCash(); renderNav();}
 function goto(p){
   const previous=state.page;
   state.page=p;

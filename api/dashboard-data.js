@@ -17,7 +17,8 @@ const SHEETS = {
   DM: "Digital_Marketing",
   CASH: "Cash_Position",
   KPI: "KPI",
-  MAU: "MAU_Registrations"
+  MAU: "MAU_Registrations",
+  USD_PAYMENT_SUMMARY: "USD_Payment_Summary"
 };
 
 const REQUIRED_TABS = Object.values(SHEETS);
@@ -106,6 +107,7 @@ function toNumber(value) {
 
   s = s
     .replace(/\$/g, "")
+    .replace(/\u09F3/g, "")
     .replace(/,/g, "")
     .replace(/%/g, "")
     .replace(/\s/g, "");
@@ -317,6 +319,84 @@ function parseKPI(values) {
   }
 
   return { months, data };
+}
+
+const USD_PAYMENT_FIELD_MAP = {
+  row_type: "rowType",
+  period: "period",
+  mis_category: "misCategory",
+  service: "service",
+  bb_dollar_rate: "bbDollarRate",
+  agency_dollar_rate: "agencyDollarRate",
+  agency_commission_bdt_per_usd: "agencyCommissionBdtPerUsd",
+  vat_rate: "vatRate",
+  tax_rate: "taxRate",
+  vendor_bill_usd: "vendorBillUsd",
+  bb_rate_cost_usd: "bbRateCostUsd",
+  bb_rate_uplift_usd: "bbRateUpliftUsd",
+  agency_commission_usd: "agencyCommissionUsd",
+  tax_usd: "taxUsd",
+  vat_usd: "vatUsd",
+  all_in_cost_usd: "allInCostUsd",
+  extra_payment_over_bb_usd: "extraPaymentOverBbUsd",
+  all_in_uplift_pct: "allInUpliftPct",
+  tax_basis: "taxBasis",
+  vat_basis: "vatBasis"
+};
+
+const USD_PAYMENT_NUMERIC_FIELDS = new Set([
+  "bbDollarRate",
+  "agencyDollarRate",
+  "agencyCommissionBdtPerUsd",
+  "vatRate",
+  "taxRate",
+  "vendorBillUsd",
+  "bbRateCostUsd",
+  "bbRateUpliftUsd",
+  "agencyCommissionUsd",
+  "taxUsd",
+  "vatUsd",
+  "allInCostUsd",
+  "extraPaymentOverBbUsd",
+  "allInUpliftPct"
+]);
+
+function parseUsdPaymentSummary(values) {
+  const header = values[0] || [];
+  const fields = header.map(column => USD_PAYMENT_FIELD_MAP[normalizeHeader(column)] || null);
+  const rows = [];
+
+  for (const row of values.slice(1)) {
+    const obj = {};
+
+    fields.forEach((field, i) => {
+      if (!field) return;
+      if (field === "period") {
+        obj[field] = normalizePeriod(row[i]) || cleanText(row[i]);
+      } else {
+        obj[field] = USD_PAYMENT_NUMERIC_FIELDS.has(field) ? toNumber(row[i]) : cleanText(row[i]);
+      }
+    });
+
+    if (!obj.rowType || !obj.period) continue;
+    rows.push(obj);
+  }
+
+  const periods = [...new Set(rows.map(row => row.period).filter(Boolean))]
+    .sort((a, b) => periodSerial(a) - periodSerial(b));
+
+  const byPeriod = {};
+  periods.forEach(period => {
+    const periodRows = rows.filter(row => row.period === period);
+    byPeriod[period] = {
+      rows: periodRows,
+      categories: periodRows.filter(row => row.rowType === "Category"),
+      serviceTotals: periodRows.filter(row => row.rowType === "Service_Total"),
+      grandTotal: periodRows.find(row => row.rowType === "Grand_Total") || null
+    };
+  });
+
+  return { periods, rows, byPeriod };
 }
 
 function parseCsv(text) {
@@ -679,6 +759,7 @@ function buildDash(raw, sourceMode = "service_account") {
   const mau = parseSimpleSheet(raw[SHEETS.MAU] || []);
   const cash = parseCash(raw[SHEETS.CASH] || []);
   const kpi = parseKPI(raw[SHEETS.KPI] || []);
+  const usdPayments = parseUsdPaymentSummary(raw[SHEETS.USD_PAYMENT_SUMMARY] || []);
 
   const dash = {
     meta,
@@ -700,6 +781,7 @@ function buildDash(raw, sourceMode = "service_account") {
     mau,
     cash,
     kpi,
+    usdPayments,
     generatedAt: new Date().toISOString(),
     source: sourceMode === "public_csv" ? "Public Google Sheets CSV" : "Google Sheets API"
   };
