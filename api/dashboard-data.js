@@ -599,12 +599,25 @@ function normalizePrivateKey(value) {
     key = key.slice(1, -1);
   }
 
-  return key
+  key = key
     .replace(/\\r\\n/g, "\n")
     .replace(/\\n/g, "\n")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .trim();
+
+  const pemMatch = key.match(/-----BEGIN PRIVATE KEY-----\s*([\s\S]*?)\s*-----END PRIVATE KEY-----/);
+  if (pemMatch) {
+    const body = pemMatch[1].replace(/\s+/g, "");
+    const lines = body.match(/.{1,64}/g) || [];
+    return [
+      "-----BEGIN PRIVATE KEY-----",
+      ...lines,
+      "-----END PRIVATE KEY-----"
+    ].join("\n");
+  }
+
+  return key;
 }
 
 async function readPublicCsvTab(sheetId, tab) {
