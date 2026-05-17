@@ -160,6 +160,7 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-chart-box{height:360px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
 .modal-table{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:auto}
 .modal-table table th{background:#F7F9FC;color:var(--navy)}
+.modal-note{margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--muted);padding:10px 12px;font-size:12px;font-weight:800}
 .drill-click-note{font-size:10.5px;color:var(--magenta);font-weight:900;text-transform:uppercase;letter-spacing:.5px}
 @media(max-width:900px){.modal-grid{grid-template-columns:1fr}.modal-chart-box{height:300px}}
 
@@ -3753,7 +3754,8 @@ function drilldownConfigForStep(stepLabel){
     },
     'Direct Sales Costs':{
       title:'Direct Sales Costs Drilldown',
-      totalKey:'Net Revenue',
+      totalKey:null,
+      totalLabel:'Total Direct Sales Costs',
       keys:['Less: Sales VAT','Less: Refunds','Less: Gateway Discounts','Less: Payment Gateway Charge'],
       mode:'cost',
       note:'Shows direct sales costs between Gross Revenue and Net Revenue.'
@@ -3810,28 +3812,86 @@ function openWaterfallDrilldown(stepLabel){
   const modal=ensureModal();
   modal.classList.add('open');
   el('drillTitle').textContent=cfg.title;
-  el('drillSub').textContent=`${ctx.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view | ${cfg.note}`;
   renderWaterfallStepDrilldown(cfg,ctx);
 }
-function renderWaterfallStepDrilldown(cfg,ctx){
-  const rows=cfg.keys.map(k=>{
-    const raw=metricAmountFor(k,ctx.period,ctx.view);
-    const amount=raw==null?0:raw;
-    return {key:k,label:cleanLineLabel(k),amount:cfg.mode==='bridge'&&k!=='Gross Revenue'?-Math.abs(amount):Math.abs(amount)};
-  }).filter(r=>r.amount!==0);
-  const total=metricAmountFor(cfg.totalKey,ctx.period,ctx.view);
+function periodHasMetricData(keys,period,view){
+  const months=DASH.pl.months, actual=DASH.pl.actual;
+  const inds=view==='ytd'?ytdRange(months,period):[idx(months,period)].filter(i=>i>=0);
+  if(!inds.length) return false;
+  return (keys||[]).some(k=>{
+    const arr=actual[k];
+    return Array.isArray(arr) && inds.some(i=>val(arr,i)!=null);
+  });
+}
+function waterfallStepAmountFor(cfg,key,ctx){
+  const raw=metricAmountFor(key,ctx.period,ctx.view);
+  if(raw==null) return null;
+  return cfg.mode==='bridge'&&key!=='Gross Revenue'?-Math.abs(raw):Math.abs(raw);
+}
+function waterfallStepRows(cfg,ctx){
+  return cfg.keys.map(k=>({key:k,label:cleanLineLabel(k),amount:waterfallStepAmountFor(cfg,k,ctx)}));
+}
+function waterfallStepTotal(cfg,rows,ctx){
+  if(cfg.totalKey){
+    const raw=metricAmountFor(cfg.totalKey,ctx.period,ctx.view);
+    if(raw!=null) return cfg.mode==='bridge'?raw:Math.abs(raw);
+  }
+  const values=(rows||[]).map(r=>r.amount).filter(v=>v!=null);
+  return values.length?sum(values.map(v=>Math.abs(v))):null;
+}
+function renderWaterfallStepSingleDrilldown(cfg,ctx,note=''){
+  el('drillSub').textContent=`${ctx.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view | ${cfg.note}`;
+  const rows=waterfallStepRows(cfg,ctx).filter(r=>r.amount!=null&&r.amount!==0);
+  const total=waterfallStepTotal(cfg,rows,ctx);
   const denom=cfg.mode==='bridge'?Math.abs(metricAmountFor('Gross Revenue',ctx.period,ctx.view)||0):Math.abs(total||rows.reduce((a,b)=>a+Math.abs(b.amount),0));
   const tableRows=rows.map(r=>{
     const share=denom?Math.abs(r.amount)/denom*100:null;
     return `<tr><td>${r.label}</td><td>${fUSD(r.amount,false)}</td><td>${fPct(share)}</td></tr>`;
   }).join('');
-  const totalLabel=cfg.mode==='bridge'?'Net Revenue':'Total';
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>Amount</th><th>${cfg.mode==='bridge'?'Share of Gross Revenue':'Share of Total'}</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(total,false)}</td><td>${cfg.mode==='bridge'?'—':'100.0%'}</td></tr></tbody></table></div></div>`;
+  const totalLabel=cfg.totalLabel||(cfg.mode==='bridge'?'Net Revenue':'Total');
+  const noteHtml=note?`<div class="modal-note">${h(note)}</div>`:'';
+  el('drillBody').innerHTML=`${noteHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>Amount</th><th>${cfg.mode==='bridge'?'Share of Gross Revenue':'Share of Total'}</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(total,false)}</td><td>${cfg.mode==='bridge'?'—':'100.0%'}</td></tr></tbody></table></div></div>`;
   if(cfg.mode==='bridge'){
     chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[{label:'Amount',data:rows.map(r=>r.amount),backgroundColor:(context)=>{const amount=rows[context.dataIndex]?.amount||0; return amount>=0?C.navy:costGradient(context.chart,false);},borderColor:(context)=>{const amount=rows[context.dataIndex]?.amount||0; return amount>=0?C.navy:costBorder(false);},hoverBackgroundColor:(context)=>{const amount=rows[context.dataIndex]?.amount||0; return amount>=0?C.navy2:costGradient(context.chart,true);},hoverBorderColor:(context)=>{const amount=rows[context.dataIndex]?.amount||0; return amount>=0?C.navy2:costBorder(true);},borderWidth:1,borderRadius:6,borderSkipped:false}]},options:baseOptions('usd',false)});
   } else {
     chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[{label:'Cost',data:rows.map(r=>Math.abs(r.amount)),backgroundColor:(context)=>costGradient(context.chart,false),borderColor:costBorder(false),hoverBackgroundColor:(context)=>costGradient(context.chart,true),hoverBorderColor:costBorder(true),borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:46}]},options:baseOptions('usd',false)});
   }
+}
+function renderWaterfallStepComparisonDrilldown(cfg,ctx){
+  const prior={period:prevYearMonth(state.period),view:state.view==='ytd'?'ytd':'monthly',label:execCompareLabel(state.period,state.view)};
+  if(!periodHasMetricData(cfg.keys,prior.period,prior.view)){
+    renderWaterfallStepSingleDrilldown(cfg,ctx,`Prior-year comparison unavailable for ${prior.label}.`);
+    return;
+  }
+  el('drillSub').textContent=`${ctx.label} vs ${prior.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view | ${cfg.note}`;
+  const currentRows=waterfallStepRows(cfg,ctx);
+  const priorRows=waterfallStepRows(cfg,prior);
+  const rows=cfg.keys.map((key,i)=>{
+    const current=currentRows[i]?.amount;
+    const priorAmount=priorRows[i]?.amount;
+    const currentValue=current==null?0:current;
+    const priorValue=priorAmount==null?0:priorAmount;
+    return {key,label:cleanLineLabel(key),current:currentValue,prior:priorValue,delta:currentValue-priorValue,pct:pctChange(currentValue,priorValue)};
+  }).filter(r=>r.current!==0||r.prior!==0);
+  const currentTotal=waterfallStepTotal(cfg,currentRows,ctx)??sum(rows.map(r=>Math.abs(r.current)));
+  const priorTotal=waterfallStepTotal(cfg,priorRows,prior)??sum(rows.map(r=>Math.abs(r.prior)));
+  const deltaTotal=currentTotal-priorTotal;
+  const pctTotal=pctChange(currentTotal,priorTotal);
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.current,false)}</td><td>${fUSD(r.prior,false)}</td>${varianceCell(r.delta,false,true)}${varianceCell(r.pct,true,true)}</tr>`).join('');
+  const totalLabel=cfg.totalLabel||'Total';
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${ctx.label}</th><th>${prior.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(currentTotal,false)}</td><td>${fUSD(priorTotal,false)}</td>${varianceCell(deltaTotal,false,true)}${varianceCell(pctTotal,true,true)}</tr></tbody></table></div></div>`;
+  chart('execDrillChart',{
+    type:'bar',
+    data:{labels:rows.map(r=>r.label),datasets:[
+      dsBar(ctx.label,rows.map(r=>Math.abs(r.current)),C.navy),
+      dsBar(prior.label,rows.map(r=>Math.abs(r.prior)),C.magenta)
+    ]},
+    options:baseOptions('usd',false)
+  });
+}
+function renderWaterfallStepDrilldown(cfg,ctx){
+  if(cfg.mode==='cost') renderWaterfallStepComparisonDrilldown(cfg,ctx);
+  else renderWaterfallStepSingleDrilldown(cfg,ctx);
 }
 
 function render(){renderNav(); el('topbarTitle').textContent='Shikho MIS Analytics'; const current=PAGES.find(p=>p[0]===state.page); const subtitle=el('topbarSubtitle'); if(subtitle) subtitle.textContent=current?current[2]:'Finance control room'; Object.keys(charts).forEach(destroy); if(state.page==='exec')renderExec(); if(state.page==='pl')renderPL(); if(state.page==='revenue')renderRevenue(); if(state.page==='costs')renderCosts(); if(state.page==='sales')renderSales(); if(state.page==='growth')renderGrowth(); if(state.page==='cash')renderCash(); renderNav();}
