@@ -87,7 +87,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Gibson','Inter
 .insight-body ul{margin:0;padding-left:17px} .insight-body li{margin:6px 0}
 .table-wrap{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:auto;margin-bottom:20px}
 table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--navy);color:#fff;padding:11px 12px;text-align:right;font-weight:900;white-space:nowrap} th:first-child,td:first-child{text-align:left} td{padding:10px 12px;border-bottom:1px solid #F0F3F8;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums} tr.total-row td{font-weight:900;background:#F8FAFD;color:var(--navy)}
-.pos-var{color:var(--green)!important;font-weight:900} .neg-var{color:var(--red)!important;font-weight:900} .watch-var{color:var(--amber)!important;font-weight:900}
+.pos-var{color:var(--green)!important} .neg-var{color:var(--red)!important} .watch-var{color:var(--amber)!important}
 .pl-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .pl-toggle-btn{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:11px;padding:8px 12px;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-soft)}
 .pl-toggle-btn:hover{background:#F7F9FC}
@@ -1051,6 +1051,15 @@ tr.total-row td,.pl-flow-row td,.pl-flow-row td:first-child{
 .pl-child-row td,.pl-section-row td,.pl-subheader-row td{
   background:color-mix(in srgb,var(--surface-2) 72%,var(--surface))!important;
   color:var(--muted)!important;
+}
+td.pos-var,tr.total-row td.pos-var,.pl-flow-row td.pos-var,.pl-section-row td.pos-var,.pl-child-row td.pos-var,.pl-subheader-row td.pos-var,.modal-table td.pos-var{
+  color:var(--green)!important;
+}
+td.neg-var,tr.total-row td.neg-var,.pl-flow-row td.neg-var,.pl-section-row td.neg-var,.pl-child-row td.neg-var,.pl-subheader-row td.neg-var,.modal-table td.neg-var{
+  color:var(--red)!important;
+}
+td.watch-var,tr.total-row td.watch-var,.pl-flow-row td.watch-var,.pl-section-row td.watch-var,.pl-child-row td.watch-var,.pl-subheader-row td.watch-var,.modal-table td.watch-var{
+  color:var(--amber)!important;
 }
 .modal-backdrop{background:rgba(2,6,23,.58)}
 .modal-card{background:var(--surface);border-color:var(--line);border-radius:10px}
@@ -3863,7 +3872,7 @@ function renderWaterfallStepComparisonDrilldown(cfg,ctx){
     renderWaterfallStepSingleDrilldown(cfg,ctx,`Prior-year comparison unavailable for ${prior.label}.`);
     return;
   }
-  el('drillSub').textContent=`${ctx.label} vs ${prior.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view | ${cfg.note}`;
+  el('drillSub').textContent=`${prior.label} vs ${ctx.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view | ${cfg.note}`;
   const currentRows=waterfallStepRows(cfg,ctx);
   const priorRows=waterfallStepRows(cfg,prior);
   const rows=cfg.keys.map((key,i)=>{
@@ -3877,14 +3886,14 @@ function renderWaterfallStepComparisonDrilldown(cfg,ctx){
   const priorTotal=waterfallStepTotal(cfg,priorRows,prior)??sum(rows.map(r=>Math.abs(r.prior)));
   const deltaTotal=currentTotal-priorTotal;
   const pctTotal=pctChange(currentTotal,priorTotal);
-  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.current,false)}</td><td>${fUSD(r.prior,false)}</td>${varianceCell(r.delta,false,true)}${varianceCell(r.pct,true,true)}</tr>`).join('');
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.prior,false)}</td><td>${fUSD(r.current,false)}</td>${varianceCell(r.delta,false,true)}${varianceCell(r.pct,true,true)}</tr>`).join('');
   const totalLabel=cfg.totalLabel||'Total';
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${ctx.label}</th><th>${prior.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(currentTotal,false)}</td><td>${fUSD(priorTotal,false)}</td>${varianceCell(deltaTotal,false,true)}${varianceCell(pctTotal,true,true)}</tr></tbody></table></div></div>`;
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${prior.label}</th><th>${ctx.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(priorTotal,false)}</td><td>${fUSD(currentTotal,false)}</td>${varianceCell(deltaTotal,false,true)}${varianceCell(pctTotal,true,true)}</tr></tbody></table></div></div>`;
   chart('execDrillChart',{
     type:'bar',
     data:{labels:rows.map(r=>r.label),datasets:[
-      dsBar(ctx.label,rows.map(r=>Math.abs(r.current)),C.navy),
-      dsBar(prior.label,rows.map(r=>Math.abs(r.prior)),C.magenta)
+      dsBar(prior.label,rows.map(r=>Math.abs(r.prior)),C.magenta),
+      dsBar(ctx.label,rows.map(r=>Math.abs(r.current)),C.navy)
     ]},
     options:baseOptions('usd',false)
   });
