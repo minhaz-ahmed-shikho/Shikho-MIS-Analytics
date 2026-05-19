@@ -3026,6 +3026,16 @@ function costContextHasData(layer,basis,ctx){
 function costTrendValues(layer,basis,periods){
   return periods.map(period=>costAmountFor(layer,basis,{source:'actual',period,view:state.view}));
 }
+function selectedCostTrendColors(periods){
+  const muted='rgba(53,72,148,.24)';
+  const mutedBorder='rgba(53,72,148,.34)';
+  const mutedHover='rgba(53,72,148,.40)';
+  return {
+    background:periods.map(period=>period===state.period?C.navy:muted),
+    border:periods.map(period=>period===state.period?C.navy:mutedBorder),
+    hover:periods.map(period=>period===state.period?C.navy2:mutedHover)
+  };
+}
 function renderCostTrendChart(layer,basis){
   const chartId=costTrendId(layer,basis);
   const periods=costPeriods(layer,basis);
@@ -3034,8 +3044,14 @@ function renderCostTrendChart(layer,basis){
     setChartNoData(chartId,`${layer.title} ${costBasisLabel(basis).toLowerCase()} data is unavailable for the selected period range.`);
     return;
   }
-  const color=basis==='cash'?C.navy:C.magenta;
-  const trend=applyTrendRange(chartId,periods,[dsBar(`${costViewLabel()} ${layer.title}`,values,color)]);
+  const colors=selectedCostTrendColors(periods);
+  const trend=applyTrendRange(chartId,periods,[{
+    ...dsBar(`${costViewLabel()} ${layer.title}`,values,C.navy),
+    backgroundColor:colors.background,
+    borderColor:colors.border,
+    hoverBackgroundColor:colors.hover,
+    hoverBorderColor:colors.hover
+  }]);
   chart(chartId,{
     type:'bar',
     data:{labels:trend.labels,datasets:trend.datasets},
