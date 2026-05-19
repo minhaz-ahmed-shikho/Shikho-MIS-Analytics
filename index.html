@@ -1830,7 +1830,7 @@ function setNote(page){
     exec: monthly?'Monthly view; compared with same month last year.':'YTD view; compared with prior-year YTD.',
     pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`,
     revenue: monthly?'Selected month compared with prior year and prior month.':'YTD revenue mix through selected month.',
-    costs: monthly?'Selected month cost intensity and margin movement.':'YTD cost intensity and operating leverage.',
+    costs: monthly?'Monthly cash and accrual cost trends with clickable drilldowns.':'YTD cash and accrual cost trends with clickable drilldowns.',
     usd:'Selected-month USD payment build-up; Monthly/YTD toggle does not change this page.',
     sales: monthly?'Selected month sales productivity and headcount.':'YTD sales productivity and ROI.',
     growth:'Monthly trend view; Monthly/YTD toggle does not change these charts.',
@@ -2845,24 +2845,63 @@ function renderRevenueCharts(){
 
 function renderCosts(){
   const layers=costLayers();
-  const cashCards=layers.map(l=>costDriverCard(`${l.title} | Cash Basis`,`${l.marginLabel} and cost intensity.`,'plCost_'+l.id)).join('');
-  const accrualCards=layers.map(l=>chartCard(`${l.title} | Accrual Basis`,`Accrual cost vs prior year.`,'accCost_'+l.id,false,true,drillNote())).join('');
-  const body=`<div class="metric-pills cost-section-label"><span class="pill"><strong>Cash Basis:</strong> selected-period revenue, cost intensity and margin snapshot</span></div><div class="chart-grid">${cashCards}</div><div class="metric-pills cost-section-label"><span class="pill"><strong>Accrual Basis:</strong> current period vs prior year with category drilldown</span></div><div class="chart-grid">${accrualCards}</div>`;
-  el('main').innerHTML=pageScaffold('costs','Cost & Margins','Cost intensity, contribution margins and accrual cost movement',4,body);
+  const cashCards=layers.map(l=>costTrendCard(l,'cash')).join('');
+  const accrualCards=layers.map(l=>costTrendCard(l,'accrual')).join('');
+  const viewLabel=state.view==='ytd'?'cumulative YTD':'monthly';
+  const body=`<div class="metric-pills cost-section-label"><span class="pill"><strong>Cash Basis:</strong> ${viewLabel} P&L cost trend from Profit & Loss</span></div><div class="chart-grid">${cashCards}</div><div class="metric-pills cost-section-label"><span class="pill"><strong>Accrual Basis:</strong> ${viewLabel} accrual cost trend from _Accrual sheets</span></div><div class="chart-grid">${accrualCards}</div>`;
+  el('main').innerHTML=pageScaffold('costs','Cost & Margins','Time-series cost trends with cash and accrual drilldowns',4,body);
   setNote('costs');
   renderCostCharts();
 }
 function costLayers(){return [
-  {id:'cogs',title:'COGS',plCost:'Total: COGS',plCostLabel:'COGS Total',margin:'GM%',marginLabel:'Gross Margin %',sheet:'cogs',sheetLabel:'COGS_Accrual',total:'Total COGS'},
-  {id:'academic',title:'Academic Support',plCost:'Total Academic Support Cost',plCostLabel:'Academic Support',margin:'CM 1 %',marginLabel:'CM1 %',sheet:'academic',sheetLabel:'Academic Support_Accrual',total:'Total Academic Support Cost'},
-  {id:'sm',title:'S&M Cost',plCost:'Total: S&M Cost',plCostLabel:'S&M Cost',margin:'CM 2 %',marginLabel:'CM2 %',sheet:'sm',sheetLabel:'S&M Cost_Accrual',total:'Total Sales Team Cost'},
-  {id:'brand',title:'Brand Marketing Cost',plCost:'Less: Brand Marketing Cost',plCostLabel:'Brand Marketing',margin:'CM 3 %',marginLabel:'CM3 %',sheet:'brand',sheetLabel:'Brand Marketing Cost_Accrual',total:'Total Brand Marketing Cost'},
-  {id:'indirect',title:'Indirect Cost',plCost:'Total: Indirect Cost',plCostLabel:'Indirect Cost',margin:'EBITDA %',marginLabel:'EBITDA %',sheet:'indirect',sheetLabel:'Indirect Cost_Accrual',total:'Total Indirect Cost'}
+  {id:'cogs',title:'COGS',plCost:'Total: COGS',plCostLabel:'COGS Total',margin:'GM%',marginLabel:'Gross Margin %',sheet:'cogs',sheetLabel:'COGS_Accrual',total:'Total COGS',cashKeys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production']},
+  {id:'academic',title:'Academic Support',plCost:'Total Academic Support Cost',plCostLabel:'Academic Support',margin:'CM 1 %',marginLabel:'CM1 %',sheet:'academic',sheetLabel:'Academic Support_Accrual',total:'Total Academic Support Cost',cashKeys:['Less: Program Management','Less: Live Class Operations']},
+  {id:'sm',title:'S&M Cost',plCost:'Total: S&M Cost',plCostLabel:'S&M Cost',margin:'CM 2 %',marginLabel:'CM2 %',sheet:'sm',sheetLabel:'S&M Cost_Accrual',total:'Total Sales Team Cost',cashKeys:['Less: Sales Team Cost','Less: Acquisition Marketing Cost','Less: Laptop Rental']},
+  {id:'brand',title:'Brand Marketing Cost',plCost:'Less: Brand Marketing Cost',plCostLabel:'Brand Marketing',margin:'CM 3 %',marginLabel:'CM3 %',sheet:'brand',sheetLabel:'Brand Marketing Cost_Accrual',total:'Total Brand Marketing Cost',cashKeys:['Below the Line','Above the Line']},
+  {id:'indirect',title:'Indirect Cost',plCost:'Total: Indirect Cost',plCostLabel:'Indirect Cost',margin:'EBITDA %',marginLabel:'EBITDA %',sheet:'indirect',sheetLabel:'Indirect Cost_Accrual',total:'Total Indirect Cost',cashKeys:['Less: G&A','Less: Infrastructure Salaries','Less: Engineering & Product Salaries','Less: Bonus','Less: Technology OpEx','Less: Vendors VDS & TDS','Less: Salary Tax']}
 ];}
-function renderCostCharts(){costLayers().forEach(renderCostLayerCharts);}
-function renderCostLayerCharts(layer){
-  renderPLCostDriverCard(layer);
-  renderAccrualCostChart(layer);
+function renderCostCharts(){costLayers().forEach(layer=>{renderCostTrendChart(layer,'cash');renderCostTrendChart(layer,'accrual');});}
+function costTrendId(layer,basis){return `${basis}Cost_${layer.id}`;}
+function costBasisLabel(basis){return basis==='cash'?'Cash Basis':'Accrual Basis';}
+function costViewLabel(view=state.view){return view==='ytd'?'YTD':'Monthly';}
+function costChartSubtitle(layer,basis){
+  const source=basis==='cash'?'Profit & Loss actuals':layer.sheetLabel;
+  return `${costViewLabel()} ${layer.title} trend from ${source}; click any bar to drill down.`;
+}
+function costTrendCard(layer,basis){
+  const chartId=costTrendId(layer,basis);
+  const periods=costPeriods(layer,basis);
+  const action=`${trendRangeControl(chartId,periods)}${drillNote()}`;
+  return `<div class="chart-card clickable"><div class="${chartHeaderClass(action)}"><div><div class="chart-card-title-row"><div class="chart-title">${layer.title} | ${costBasisLabel(basis)}</div></div><div class="chart-sub">${costChartSubtitle(layer,basis)}</div></div><div class="${chartActionClass(action)}">${action}</div></div><div class="chart-body tall"><canvas id="${chartId}"></canvas></div></div>`;
+}
+function costPeriods(layer,basis){
+  const months=basis==='cash'?(DASH?.pl?.months||[]):((DASH?.accrualCosts?.[layer.sheet]||{}).months||[]);
+  const ceiling=periodSerial(state.period);
+  return months.filter(m=>m && periodSerial(m)<=ceiling);
+}
+function finiteNumber(value){return value!=null && Number.isFinite(value);}
+function absOrNull(value){return finiteNumber(value)?Math.abs(value):null;}
+function cashCostAmount(layer,source,period,view=state.view){
+  if(source==='budget' && !isBudgetYear(period)) return null;
+  const months=DASH.pl.months, arr=(DASH.pl[source]||{})[layer.plCost];
+  if(!arr) return null;
+  const endpoint=val(arr,idx(months,period));
+  if(!finiteNumber(endpoint)) return null;
+  const amount=view==='ytd'?plValue(source,layer.plCost,period,'ytd'):endpoint;
+  return absOrNull(amount);
+}
+function cashDetailAmount(key,source,period,view=state.view){
+  if(source==='budget' && !isBudgetYear(period)) return null;
+  const months=DASH.pl.months, arr=(DASH.pl[source]||{})[key];
+  if(!arr) return null;
+  if(view==='ytd'){
+    const range=ytdRange(months,period);
+    if(!range.length) return null;
+    const hasAny=range.some(i=>val(arr,i)!=null);
+    return hasAny?Math.abs(ytdValue(arr,months,period)||0):0;
+  }
+  const raw=val(arr,idx(months,period));
+  return raw==null?0:Math.abs(raw);
 }
 function pctSeriesFor(metric){
   const m=DASH.pl.months,a=DASH.pl.actual;
@@ -2954,6 +2993,137 @@ function accTotalFromBreakdown(layer,data,months,period,view){
   const totalKey=accTotalKey(layer,data);
   if(totalKey) return accValue(data[totalKey],months,period,view)||0;
   return accBreakdownKeys(layer,data).reduce((sum,key)=>sum+(accValue(data[key],months,period,view)||0),0);
+}
+function accrualCostAmount(layer,period,view=state.view){
+  const src=DASH.accrualCosts[layer.sheet]; if(!src) return null;
+  if(!accHasMonthData(src.data,src.months,period)) return null;
+  return Math.abs(accTotalFromBreakdown(layer,src.data,src.months,period,view)||0);
+}
+function accrualDetailAmount(layer,key,period,view=state.view){
+  const src=DASH.accrualCosts[layer.sheet]; if(!src) return null;
+  if(!accHasMonthData(src.data,src.months,period)) return null;
+  const arr=src.data[key]; if(!arr) return null;
+  return Math.abs(accValue(arr,src.months,period,view)||0);
+}
+function costAmountFor(layer,basis,ctx){
+  if(basis==='cash') return cashCostAmount(layer,ctx.source,ctx.period,ctx.view);
+  return accrualCostAmount(layer,ctx.period,ctx.view);
+}
+function costDetailKeys(layer,basis){
+  if(basis==='cash') return layer.cashKeys||[];
+  const src=DASH.accrualCosts[layer.sheet];
+  return src?accBreakdownKeys(layer,src.data):[];
+}
+function costDetailAmountFor(layer,basis,key,ctx){
+  if(basis==='cash') return cashDetailAmount(key,ctx.source,ctx.period,ctx.view);
+  return accrualDetailAmount(layer,key,ctx.period,ctx.view);
+}
+function costContextHasData(layer,basis,ctx){
+  const total=costAmountFor(layer,basis,ctx);
+  if(total!=null) return true;
+  return costDetailKeys(layer,basis).some(key=>costDetailAmountFor(layer,basis,key,ctx)!=null);
+}
+function costTrendValues(layer,basis,periods){
+  return periods.map(period=>costAmountFor(layer,basis,{source:'actual',period,view:state.view}));
+}
+function renderCostTrendChart(layer,basis){
+  const chartId=costTrendId(layer,basis);
+  const periods=costPeriods(layer,basis);
+  const values=costTrendValues(layer,basis,periods);
+  if(!values.some(finiteNumber)){
+    setChartNoData(chartId,`${layer.title} ${costBasisLabel(basis).toLowerCase()} data is unavailable for the selected period range.`);
+    return;
+  }
+  const color=basis==='cash'?C.navy:C.magenta;
+  const trend=applyTrendRange(chartId,periods,[dsBar(`${costViewLabel()} ${layer.title}`,values,color)]);
+  chart(chartId,{
+    type:'bar',
+    data:{labels:trend.labels,datasets:trend.datasets},
+    options:withBarDataLabels({...baseOptions('usd',false),interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{event.native.target.style.cursor=elements.length?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const period=trend.labels[elements[0].index]; if(period) openCostTrendDrilldown(layer.id,basis,period);}}),
+    plugins:[barDataLabelPlugin]
+  });
+}
+function costPeriodLabel(period,view=state.view){return view==='ytd'?`YTD ${monthLabelLong(period)}`:monthLabelLong(period);}
+function costComparisonContext(mode,period,view){
+  if(mode==='budget') return {source:'budget',period,view,label:`Budget (${costPeriodLabel(period,view)})`};
+  if(mode==='previous_month'){
+    const p=prevMonth(period);
+    return {source:'actual',period:p,view,label:costPeriodLabel(p,view)};
+  }
+  const p=prevYearMonth(period);
+  return {source:'actual',period:p,view,label:costPeriodLabel(p,view)};
+}
+function costComparisonOptions(layer,basis,period,view){
+  const options=[{id:'last_year',label:view==='ytd'?'YTD Last Year':'Same Month Last Year'}];
+  if(basis==='cash'){
+    const budgetCtx=costComparisonContext('budget',period,view);
+    if(costContextHasData(layer,basis,budgetCtx)) options.push({id:'budget',label:view==='ytd'?'YTD Budget':'Budget'});
+  }
+  options.push({id:'previous_month',label:view==='ytd'?'YTD Previous Month':'Previous Month'});
+  return options;
+}
+function costRowsForContext(layer,basis,ctx){
+  return costDetailKeys(layer,basis).map(key=>({key,label:cleanLineLabel(key),amount:costDetailAmountFor(layer,basis,key,ctx)}));
+}
+function costTotalForRows(layer,basis,ctx,rows){
+  const total=costAmountFor(layer,basis,ctx);
+  return total!=null?total:sum((rows||[]).map(r=>Math.abs(r.amount||0)));
+}
+function costDrilldownTabs(layer,basis,period,active='last_year'){
+  const view=state.view==='ytd'?'ytd':'monthly';
+  const options=costComparisonOptions(layer,basis,period,view);
+  return `<div class="modal-tabs">${options.map(opt=>`<button class="modal-tab ${opt.id===active?'active':''}" onclick="renderCostTrendDrilldown(${jsArg(layer.id)},${jsArg(basis)},${jsArg(period)},${jsArg(opt.id)})">${h(opt.label)}</button>`).join('')}</div>`;
+}
+function costSingleDrilldown(layer,basis,currentCtx,note='',tabsHtml=''){
+  const rows=costRowsForContext(layer,basis,currentCtx).filter(r=>r.amount!=null&&Math.abs(r.amount)>0.0001);
+  const total=costTotalForRows(layer,basis,currentCtx,rows);
+  const tableRows=rows.map(r=>`<tr><td>${h(r.label)}</td><td>${fUSD(r.amount,false)}</td><td>${fPct(total?r.amount/total*100:null)}</td></tr>`).join('');
+  const noteHtml=note?`<div class="modal-note">${h(note)}</div>`:'';
+  el('drillBody').innerHTML=`${tabsHtml}${noteHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>Amount</th><th>Share of Total</th></tr></thead><tbody>${tableRows||`<tr><td colspan="3">No breakdown data available</td></tr>`}<tr class="total-row"><td>Total</td><td>${fUSD(total,false)}</td><td>${rows.length?'100.0%':'-'}</td></tr></tbody></table></div></div>`;
+  barChart('execDrillChart',rows.map(r=>r.label),[dsBar(currentCtx.label,rows.map(r=>r.amount),basis==='cash'?C.navy:C.magenta)],'usd',false);
+}
+function costComparisonDrilldown(layer,basis,currentCtx,compareCtx,activeMode){
+  const tabs=costDrilldownTabs(layer,basis,currentCtx.period,activeMode);
+  if(!costContextHasData(layer,basis,compareCtx)){
+    costSingleDrilldown(layer,basis,currentCtx,`${compareCtx.label} comparison unavailable; showing ${currentCtx.label} only.`,tabs);
+    return;
+  }
+  const currentRows=costRowsForContext(layer,basis,currentCtx);
+  const compareRows=costRowsForContext(layer,basis,compareCtx);
+  const rows=costDetailKeys(layer,basis).map((key,i)=>{
+    const current=currentRows[i]?.amount??0;
+    const compare=compareRows[i]?.amount??0;
+    return {key,label:cleanLineLabel(key),current,compare,delta:current-compare,pct:pctChange(current,compare)};
+  }).filter(r=>Math.abs(r.current)>0.0001||Math.abs(r.compare)>0.0001);
+  const currentTotal=costTotalForRows(layer,basis,currentCtx,currentRows);
+  const compareTotal=costTotalForRows(layer,basis,compareCtx,compareRows);
+  const deltaTotal=currentTotal-compareTotal;
+  const pctTotal=pctChange(currentTotal,compareTotal);
+  const tableRows=rows.map(r=>`<tr><td>${h(r.label)}</td><td>${fUSD(r.compare,false)}</td><td>${fUSD(r.current,false)}</td>${varianceCell(r.delta,false,true)}${varianceCell(r.pct,true,true)}</tr>`).join('');
+  el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${h(compareCtx.label)}</th><th>${h(currentCtx.label)}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows||`<tr><td colspan="5">No breakdown data available</td></tr>`}<tr class="total-row"><td>Total</td><td>${fUSD(compareTotal,false)}</td><td>${fUSD(currentTotal,false)}</td>${varianceCell(deltaTotal,false,true)}${varianceCell(pctTotal,true,true)}</tr></tbody></table></div></div>`;
+  chart('execDrillChart',{
+    type:'bar',
+    data:{labels:rows.map(r=>r.label),datasets:[dsBar(compareCtx.label,rows.map(r=>r.compare),C.magenta),dsBar(currentCtx.label,rows.map(r=>r.current),C.navy)]},
+    options:baseOptions('usd',false)
+  });
+}
+function openCostTrendDrilldown(layerId,basis,period){
+  const layer=costLayers().find(l=>l.id===layerId); if(!layer) return;
+  const modal=ensureModal();
+  modal.classList.add('open');
+  el('drillTitle').textContent=`${layer.title} ${costBasisLabel(basis)} Drilldown`;
+  renderCostTrendDrilldown(layerId,basis,period,'last_year');
+}
+function renderCostTrendDrilldown(layerId,basis,period,compareMode='last_year'){
+  const layer=costLayers().find(l=>l.id===layerId); if(!layer) return;
+  const view=state.view==='ytd'?'ytd':'monthly';
+  const options=costComparisonOptions(layer,basis,period,view);
+  const mode=options.some(opt=>opt.id===compareMode)?compareMode:options[0]?.id||'last_year';
+  state.costDrillCompare=mode;
+  const currentCtx={source:'actual',period,view,label:costPeriodLabel(period,view)};
+  const compareCtx=costComparisonContext(mode,period,view);
+  el('drillSub').textContent=`${currentCtx.label} | ${costBasisLabel(basis)} | ${view==='ytd'?'Cumulative YTD':'Selected month'} view`;
+  costComparisonDrilldown(layer,basis,currentCtx,compareCtx,mode);
 }
 function cleanAccrualBarOptions(){
   const opts={...baseOptions('usd',false)};
