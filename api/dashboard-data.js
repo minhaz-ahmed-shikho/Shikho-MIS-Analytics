@@ -158,11 +158,54 @@ function parseGroupedSheet(values) {
   return { months, data };
 }
 
-function parsePL(values) {
+function setPLSeries(target, bySection, metric, section, series) {
+  target[metric] = series;
+  const sectionKey = section || "__unsectioned__";
+  if (!bySection[sectionKey]) bySection[sectionKey] = {};
+  bySection[sectionKey][metric] = series;
+}
+
+function latestForecastPeriod(months, forecast) {
+  for (let i = months.length - 1; i >= 0; i -= 1) {
+    const period = months[i];
+    if (!period || !String(period).endsWith("-26")) continue;
+    const hasForecast = Object.values(forecast).some(series => {
+      const value = series && series[i];
+      return value !== null && value !== undefined && Number.isFinite(value);
+    });
+    if (hasForecast) return period;
+  }
+  return "";
+}
+
+function buildBlendedPLSeries(months, actual, forecast, actualsTo) {
+  const actualCutoff = periodSerial(actualsTo);
+  const blended = {};
+  const keys = new Set([...Object.keys(actual || {}), ...Object.keys(forecast || {})]);
+
+  for (const key of keys) {
+    const actualSeries = actual[key] || [];
+    const forecastSeries = forecast[key] || [];
+    blended[key] = months.map((period, index) => {
+      if (periodSerial(period) <= actualCutoff) {
+        const value = actualSeries[index];
+        return value === undefined ? null : value;
+      }
+      const value = forecastSeries[index];
+      return value === undefined ? null : value;
+    });
+  }
+
+  return blended;
+}
+
+function parsePL(values, meta = {}) {
   const header = values[0] || [];
   const months = header.slice(3).map(cleanText).filter(Boolean);
   const actual = {};
-  const budget = {};
+  const forecast = {};
+  const actualBySection = {};
+  const forecastBySection = {};
   const sections = {};
 
   for (const row of values.slice(1)) {
@@ -173,16 +216,38 @@ function parsePL(values) {
 
     const series = parseSeries(row, 3, months.length);
 
-    if (type.includes("budget")) {
-      budget[metric] = series;
-    } else {
-      actual[metric] = series;
+    if (type === "actual") {
+      setPLSeries(actual, actualBySection, metric, section, series);
+    } else if (type === "forecast") {
+      setPLSeries(forecast, forecastBySection, metric, section, series);
     }
 
     if (section) sections[metric] = section;
   }
 
-  return { months, actual, budget, sections };
+  const blended = buildBlendedPLSeries(months, actual, forecast, meta.actualsTo);
+  const blendedBySection = {};
+  const sectionKeys = new Set([...Object.keys(actualBySection), ...Object.keys(forecastBySection)]);
+  for (const sectionKey of sectionKeys) {
+    blendedBySection[sectionKey] = buildBlendedPLSeries(
+      months,
+      actualBySection[sectionKey] || {},
+      forecastBySection[sectionKey] || {},
+      meta.actualsTo
+    );
+  }
+
+  return {
+    months,
+    actual,
+    forecast,
+    blended,
+    actualBySection,
+    forecastBySection,
+    blendedBySection,
+    sections,
+    forecastTo: meta.forecastTo || latestForecastPeriod(months, forecast)
+  };
 }
 
 function parseSM(values) {
@@ -237,7 +302,6 @@ function parseConfig(values) {
     actualsTo,
     forecastFrom,
     forecastTo: normalizePeriod(config.Forecast_To),
-    budgetYear: toNumber(config.Budget_Year),
     raw: config
   };
 }
@@ -617,7 +681,6 @@ function buildPeriodMetadata(dash, meta) {
       displayActual,
       forecastFrom,
       forecastTo: meta.forecastTo || "",
-      budgetYear: meta.budgetYear,
       selectable
     },
     validation: {
@@ -741,7 +804,8 @@ async function readAllRequiredTabs(sheets, sheetId) {
 
 function buildDash(raw, sourceMode = "service_account") {
   const meta = parseConfig(raw[SHEETS.CONFIG] || []);
-  const pl = parsePL(raw[SHEETS.PL] || []);
+  const pl = parsePL(raw[SHEETS.PL] || [], meta);
+  if (!meta.forecastTo && pl.forecastTo) meta.forecastTo = pl.forecastTo;
 
   const revChannel = parseGroupedSheet(raw[SHEETS.REVENUE_CHANNEL] || []);
   const revCourse = parseGroupedSheet(raw[SHEETS.REVENUE_COURSE] || []);

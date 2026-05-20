@@ -1419,9 +1419,10 @@ function metricIcon(label){
 function labelIcon(label){return `${icon(metricIcon(label),'kpi-icon')}<span>${label}</span>`;}
 const PAGES=[
   ['exec','Executive Summary','Command-center view of financial health and action signals','dashboard'],
-  ['pl','Budget vs Actual Performance','Revenue, margin and EBITDA control against budget','activity'],
+  ['pl','Actual vs Forecast Performance','Revenue, margin and EBITDA control against forecast','activity'],
   ['revenue','Revenue Analysis','Channel, course and repeat revenue drivers over time','coins'],
   ['costs','Cost & Margins','COGS, payroll and operating leverage','receipt'],
+  ['forecast','Forecast Outlook','FY2026 actuals plus remaining forecast','trend'],
   ['usd','USD Payment Structure','Dollar purchase cost build-up and VAT impact','scale'],
   ['sales','Sales Team Efficiency','Sales productivity, ROI, headcount and package mix','users'],
   ['growth','Marketing & Growth Efficiency','Platform spend, actual spend and paid user activity','target'],
@@ -1447,7 +1448,7 @@ function costGradient(chart,hover=false){
 function costBorder(hover=false){
   return hover ? '#C84F5E' : '#D77583';
 }
-let state={page:'exec',period:null,view:'monthly',execMargins:['GM%'],trendRanges:{},theme:localStorage.getItem('dashboardTheme')==='dark'?'dark':'light'};
+let state={page:'exec',period:null,view:'monthly',plCompare:'forecast',execMargins:['GM%'],trendRanges:{},theme:localStorage.getItem('dashboardTheme')==='dark'?'dark':'light'};
 const charts={};
 Chart.defaults.font.family="Inter, Poppins, sans-serif";
 Chart.defaults.font.size=11;
@@ -1828,9 +1829,10 @@ function setNote(page){
   const monthly=state.view==='monthly';
   const notes={
     exec: monthly?'Monthly view; compared with same month last year.':'YTD view; compared with prior-year YTD.',
-    pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'budget').toLowerCase()}.`,
+    pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'forecast').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'forecast').toLowerCase()}.`,
     revenue: monthly?'Selected month compared with prior year and prior month.':'YTD revenue mix through selected month.',
     costs: monthly?'Monthly cash and accrual cost trends with clickable drilldowns.':'YTD cash and accrual cost trends with clickable drilldowns.',
+    forecast:'FY2026 outlook uses actuals through the close and forecast after that.',
     usd:'Selected-month USD payment build-up; Monthly/YTD toggle does not change this page.',
     sales: monthly?'Selected month sales productivity and headcount.':'YTD sales productivity and ROI.',
     growth:'Monthly trend view; Monthly/YTD toggle does not change these charts.',
@@ -1994,7 +1996,7 @@ function waterfallMargins(period,view){
   };
 }
 
-function kpiCard(label, arr, months, fmt, lower=false, budgetArr=null){const c=compareFor(arr,months,state.period,state.view); let comp=c.comp; let labelText=c.label; if(state.view==='monthly'&&budgetArr){comp=val(budgetArr,idx(months,state.period)); labelText='vs budget';} const klass=indicatorClass(label,c.current,comp,lower); const delta=comp!=null?c.current-comp:null; const pct=pctChange(c.current,comp); return `<div class="kpi-card ${klass}"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status ${klass}">${klass==='good'?'Good':klass==='bad'?'Watch':'Flat'}</div></div><div class="kpi-value">${fmt(c.current)}</div><div class="kpi-meta">${badge(delta,pct,klass,labelText)}</div></div>`}
+function kpiCard(label, arr, months, fmt, lower=false, forecastArr=null){const c=compareFor(arr,months,state.period,state.view); let comp=c.comp; let labelText=c.label; if(state.view==='monthly'&&forecastArr){comp=val(forecastArr,idx(months,state.period)); labelText='vs forecast';} const klass=indicatorClass(label,c.current,comp,lower); const delta=comp!=null?c.current-comp:null; const pct=pctChange(c.current,comp); return `<div class="kpi-card ${klass}"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status ${klass}">${klass==='good'?'Good':klass==='bad'?'Watch':'Flat'}</div></div><div class="kpi-value">${fmt(c.current)}</div><div class="kpi-meta">${badge(delta,pct,klass,labelText)}</div></div>`}
 function insightText(){
   const plM=DASH.pl.months, plA=DASH.pl.actual;
   const curPeriod=plM.includes(state.period)?state.period:latestActualPeriod();
@@ -2067,7 +2069,7 @@ function insightText(){
       `${badgeHtml('watch','Amber')} Marketing cash gap: ${fUSD(platform)} platform vs ${fUSD(actual)} actual. +${adGapPct==null?'—':adGapPct.toFixed(0)+'%'} real cost.`
     ],
     actions:[
-      `Lock ${monthLabelLong(nextActionPeriod)} revenue budget by course and channel.`,
+      `Lock ${monthLabelLong(nextActionPeriod)} revenue forecast by course and channel.`,
       `Freeze sales hiring. Review ROI by team.`,
       `Cap server spend. Audit vendor and usage this week.`,
       `Review cash weekly. Use pessimistic case as trigger.`
@@ -2332,20 +2334,18 @@ function renderExecCharts(){
 }
 function plMarginCard(){
   const action=`${trendRangeControl('plMargin',plTrendMonths())}<div class="chart-filter" id="plMarginToggles"></div>`;
-  return `<div class="chart-card"><div class="${chartHeaderClass(action)}"><div><div class="chart-card-title-row"><div class="chart-title">Margin vs Budget</div></div><div class="chart-sub">Monthly GM% and EBITDA% trend for the selected year; budget lines appear only where budget exists</div></div><div class="${chartActionClass(action)}">${action}</div></div><div class="chart-body tall"><canvas id="plMargin"></canvas></div></div>`;
+  return `<div class="chart-card"><div class="${chartHeaderClass(action)}"><div><div class="chart-card-title-row"><div class="chart-title">Margin vs Forecast</div></div><div class="chart-sub">Monthly GM% and EBITDA% trend for the selected year; forecast lines appear where forecast exists</div></div><div class="${chartActionClass(action)}">${action}</div></div><div class="chart-body tall"><canvas id="plMargin"></canvas></div></div>`;
 }
 function renderPL(){
   state.plExpanded=state.plExpanded||{};
-  const compareMode=state.plCompare||'budget';
+  const compareMode=state.plCompare||'forecast';
   const actualHeader=`Actual (${plTablePeriodLabel(state.period,state.view)})`;
   const comparisonHeader=plComparisonHeader(compareMode);
-  const compareSelect=`<select id="plCompareSelect" class="small-select" onchange="state.plCompare=this.value; renderPL();"><option value="budget" ${compareMode==='budget'?'selected':''}>Budget</option><option value="previous_month" ${compareMode==='previous_month'?'selected':''}>Previous Month</option><option value="same_month_last_year" ${compareMode==='same_month_last_year'?'selected':''}>Same Month Previous Year</option></select>`;
-  const body=`<div class="chart-grid">${chartCard('Gross Revenue vs Budget','Monthly actuals vs budget.','plRev',false,true,isBudgetYear(state.period)?drillNote():'')}${plMarginCard()}</div><div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Profit & Loss (${plTablePeriodLabel(state.period,state.view)})</div><div class="pl-table-note">${plComparisonNarrative(compareMode)}</div></div><div class="pl-controls">${compareSelect}<button class="pl-toggle-btn" onclick="toggleAllPL(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllPL(false)">Collapse All</button></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>${actualHeader}</th><th>${comparisonHeader}</th><th>Variance</th><th>Var %</th></tr></thead><tbody id="plTable"></tbody></table></div>`;
-  el('main').innerHTML=pageScaffold('pl','Budget vs Actual Performance','Cash basis revenue, margin and EBITDA performance against budget',2,body);
+  const compareSelect=`<select id="plCompareSelect" class="small-select" onchange="state.plCompare=this.value; renderPL();"><option value="forecast" ${compareMode==='forecast'?'selected':''}>Forecast</option><option value="previous_month" ${compareMode==='previous_month'?'selected':''}>Previous Month</option><option value="same_month_last_year" ${compareMode==='same_month_last_year'?'selected':''}>Same Month Previous Year</option></select>`;
+  const body=`<div class="chart-grid">${chartCard('Gross Revenue vs Forecast','Monthly actuals vs forecast.','plRev',false,true,drillNote())}${plMarginCard()}</div><div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Profit & Loss (${plTablePeriodLabel(state.period,state.view)})</div><div class="pl-table-note">${plComparisonNarrative(compareMode)}</div></div><div class="pl-controls">${compareSelect}<button class="pl-toggle-btn" onclick="toggleAllPL(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllPL(false)">Collapse All</button></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>${actualHeader}</th><th>${comparisonHeader}</th><th>Variance</th><th>Var %</th></tr></thead><tbody id="plTable"></tbody></table></div>`;
+  el('main').innerHTML=pageScaffold('pl','Actual vs Forecast Performance','Cash basis revenue, margin and EBITDA performance against forecast',2,body);
   setNote('pl'); renderPLCharts(); renderPLTable();
 }
-function budgetYear(){return Number(DASH?.periods?.budgetYear||DASH?.meta?.budgetYear)||currentYearLabel(state.period||latestActualPeriod());}
-function isBudgetYear(period=state.period){return currentYearLabel(period||latestActualPeriod())===budgetYear();}
 function plTrendMonths(){
   const m=DASH.pl.months, end=idx(m,state.period);
   if(end<0) return [];
@@ -2357,7 +2357,6 @@ function plValue(source,key,period=state.period,view=state.view){
   const obj=DASH.pl[source]||{}, arr=obj[key], months=DASH.pl.months;
   if(!arr) return null;
   const v=view==='ytd'?'ytd':'monthly';
-  if(source==='budget' && !isBudgetYear(period)) return null;
   if(v==='ytd'){
     const inds=ytdRange(months,period);
     const vals=inds.map(i=>val(arr,i)).filter(x=>x!=null);
@@ -2368,7 +2367,6 @@ function plValue(source,key,period=state.period,view=state.view){
 }
 function plPctValue(source,pctKey,numeratorKey,period=state.period,view=state.view){
   const v=view==='ytd'?'ytd':'monthly';
-  if(source==='budget' && !isBudgetYear(period)) return null;
   if(v==='ytd'){
     const num=plValue(source,numeratorKey,period,'ytd');
     const den=plValue(source,'Net Revenue',period,'ytd');
@@ -2400,26 +2398,26 @@ function renderPLCharts(){
   const months=plTrendMonths();
   const labels=months;
   const actualGR=months.map(m=>plSeriesValue('actual','Gross Revenue',m));
-  const budgetGR=months.map(m=>plSeriesValue('budget','Gross Revenue',m));
-  const hasBudgetGR=hasSeriesData(budgetGR);
+  const forecastGR=months.map(m=>plSeriesValue('forecast','Gross Revenue',m));
+  const hasForecastGR=hasSeriesData(forecastGR);
   const revDatasets=[];
-  if(hasBudgetGR) revDatasets.push(dsBar('Budget Gross Revenue',budgetGR,C.magenta));
+  if(hasForecastGR) revDatasets.push(dsBar('Forecast Gross Revenue',forecastGR,C.magenta));
   revDatasets.push(dsBar('Actual Gross Revenue',actualGR,C.navy));
-  chart('plRev',{type:'bar',data:{labels,datasets:revDatasets},options:withBarDataLabels({...baseOptions('usd',false),onHover:(event,elements)=>{event.native.target.style.cursor=(hasBudgetGR&&elements.length)?'pointer':'default';},onClick:(event,elements)=>{if(!hasBudgetGR||!elements.length)return; const p=months[elements[0].index]; if(p) openPLGrossRevenueBudgetDrilldown(p,'channel');}}),plugins:[barDataLabelPlugin]});
+  chart('plRev',{type:'bar',data:{labels,datasets:revDatasets},options:withBarDataLabels({...baseOptions('usd',false),onHover:(event,elements)=>{event.native.target.style.cursor=(hasForecastGR&&elements.length)?'pointer':'default';},onClick:(event,elements)=>{if(!hasForecastGR||!elements.length)return; const p=months[elements[0].index]; if(p) openPLGrossRevenueForecastDrilldown(p,'channel');}}),plugins:[barDataLabelPlugin]});
   renderPLMarginToggles();
   state.plMarginVisible=state.plMarginVisible||{gm:true,ebitda:true};
   const gm=months.map(m=>plPctValue('actual','GM%','Gross Margin',m,'monthly'));
-  const bgm=months.map(m=>plPctValue('budget','GM%','Gross Margin',m,'monthly'));
+  const fgm=months.map(m=>plPctValue('forecast','GM%','Gross Margin',m,'monthly'));
   const eb=months.map(m=>plPctValue('actual','EBITDA %','EBITDA',m,'monthly'));
-  const beb=months.map(m=>plPctValue('budget','EBITDA %','EBITDA',m,'monthly'));
+  const feb=months.map(m=>plPctValue('forecast','EBITDA %','EBITDA',m,'monthly'));
   const marginDatasets=[];
   if(state.plMarginVisible.gm!==false){
     marginDatasets.push(dsLine('GM%',gm,C.navy));
-    if(hasSeriesData(bgm)) marginDatasets.push({...dsLine('Budget GM%',bgm,C.navy2),borderDash:[6,4]});
+    if(hasSeriesData(fgm)) marginDatasets.push({...dsLine('Forecast GM%',fgm,C.navy2),borderDash:[6,4]});
   }
   if(state.plMarginVisible.ebitda!==false){
     marginDatasets.push(dsLine('EBITDA %',eb,C.magenta));
-    if(hasSeriesData(beb)) marginDatasets.push({...dsLine('Budget EBITDA %',beb,'#E37BBA'),borderDash:[6,4]});
+    if(hasSeriesData(feb)) marginDatasets.push({...dsLine('Forecast EBITDA %',feb,'#E37BBA'),borderDash:[6,4]});
   }
   const marginRange=applyTrendRange('plMargin',labels,marginDatasets);
   chart('plMargin',{type:'line',data:{labels:marginRange.labels,datasets:marginRange.datasets},options:baseOptions('pct',false)});
@@ -2453,16 +2451,16 @@ function plComparisonPeriod(mode){
   if(mode==='same_month_last_year') return prevYearMonth(state.period);
   return state.period;
 }
-function plComparisonHeader(mode=state.plCompare||'budget'){
-  if(mode==='budget') return `Budget (${plTablePeriodLabel(state.period,state.view)})`;
+function plComparisonHeader(mode=state.plCompare||'forecast'){
+  if(mode==='forecast') return `Forecast (${plTablePeriodLabel(state.period,state.view)})`;
   return plTablePeriodLabel(plComparisonPeriod(mode),state.view);
 }
 function plCompareNarrativeLabel(period,view=state.view){
   return view==='ytd'?`YTD ${monthLabelLong(period)}`:monthLabelLong(period);
 }
-function plComparisonNarrative(mode=state.plCompare||'budget'){
+function plComparisonNarrative(mode=state.plCompare||'forecast'){
   const actual=plCompareNarrativeLabel(state.period,state.view);
-  if(mode==='budget') return `Compare Actual (${actual}) to Budget (${actual})`;
+  if(mode==='forecast') return `Compare Actual (${actual}) to Forecast (${actual})`;
   if(mode==='previous_month'){
     const prior=plCompareNarrativeLabel(plComparisonPeriod(mode),state.view);
     return `Compare Actual (${actual}) to Previous Month Actual (${prior})`;
@@ -2473,13 +2471,13 @@ function plComparisonNarrative(mode=state.plCompare||'budget'){
   }
   return `Compare Actual (${actual}) to ${plComparisonHeader(mode)}`;
 }
-function plComparisonValue(row,mode=state.plCompare||'budget'){
-  if(mode==='budget') return plMetric(row,'budget',state.period,state.view);
+function plComparisonValue(row,mode=state.plCompare||'forecast'){
+  if(mode==='forecast') return plMetric(row,'forecast',state.period,state.view);
   return plMetric(row,'actual',plComparisonPeriod(mode),state.view);
 }
 function plFormat(v,row){if(v==null)return ''; return row.pct?fPct(v):fUSD(v,false);}
 const PL_VAR_PCT_DASH_ROWS=new Set(['GM%','CM 1 %','CM 2 %','CM 3 %','EBITDA %']);
-function plVarianceCells(actual,budget,row){const delta=(actual!=null&&budget!=null)?actual-budget:null; const pct=pctChange(actual,budget); const pctCell=PL_VAR_PCT_DASH_ROWS.has(row.key||'')?'<td class="watch-var">—</td>':varianceCell(pct,true,!!row.lower); return `${varianceCell(delta,!!row.pct,!!row.lower)}${pctCell}`;}
+function plVarianceCells(actual,compare,row){const delta=(actual!=null&&compare!=null)?actual-compare:null; const pct=pctChange(actual,compare); const pctCell=PL_VAR_PCT_DASH_ROWS.has(row.key||'')?'<td class="watch-var">—</td>':varianceCell(pct,true,!!row.lower); return `${varianceCell(delta,!!row.pct,!!row.lower)}${pctCell}`;}
 function plHistoryValue(row,period){
   const view=state.view==='ytd'?'ytd':'monthly';
   return plMetric(row,'actual',period,view);
@@ -2494,7 +2492,7 @@ function plDetailClass(parentId,key){
 function renderPLTable(){
   state.plExpanded=state.plExpanded||{};
   const html=[];
-  const compareMode=state.plCompare||'budget';
+  const compareMode=state.plCompare||'forecast';
   PL_ROWS.forEach(row=>{
     const actual=plMetric(row,'actual');
     const comp=plComparisonValue(row,compareMode);
@@ -2513,25 +2511,182 @@ function renderPLTable(){
   });
   el('plTable').innerHTML=html.join('');
 }
-function openPLGrossRevenueBudgetDrilldown(period,tab='channel'){
-  if(!isBudgetYear(period)) return;
+function openPLGrossRevenueForecastDrilldown(period,tab='channel'){
   const modal=ensureModal();
   modal.classList.add('open');
-  el('drillTitle').textContent='Gross Revenue: Actual vs Budget';
-  el('drillSub').textContent=`${period} | Actual vs Budget | ${state.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
-  renderPLGrossRevenueBudgetDrilldown(period,tab);
+  el('drillTitle').textContent='Gross Revenue: Actual vs Forecast';
+  el('drillSub').textContent=`${period} | Actual vs Forecast | ${state.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
+  renderPLGrossRevenueForecastDrilldown(period,tab);
 }
-function renderPLGrossRevenueBudgetDrilldown(period,tab='channel'){
+function renderPLGrossRevenueForecastDrilldown(period,tab='channel'){
   const channelKeys=['Telesales','Installment Recovery','Inbound','Retention'];
   const courseKeys=['Class 6 to 8','Class 9 to 12','Board Exam Prep','Uni Admission','Skills','Other'];
   const keys=tab==='course'?courseKeys:channelKeys;
   const view=state.view==='ytd'?'ytd':'monthly';
-  const rows=keys.map(k=>{const actual=plValue('actual',k,period,view)||0; const budget=plValue('budget',k,period,view)||0; return {label:cleanLineLabel(k),actual,budget,delta:actual-budget,pct:pctChange(actual,budget)};}).filter(r=>r.actual!==0||r.budget!==0);
-  const actualTotal=sum(rows.map(r=>r.actual)), budgetTotal=sum(rows.map(r=>r.budget));
-  const deltaTotal=actualTotal-budgetTotal, pctTotal=pctChange(actualTotal,budgetTotal);
-  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.actual,false)}</td><td>${fUSD(r.budget,false)}</td>${varianceCell(r.delta,false,false)}${varianceCell(r.pct,true,false)}</tr>`).join('');
-  el('drillBody').innerHTML=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderPLGrossRevenueBudgetDrilldown('${period}','channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderPLGrossRevenueBudgetDrilldown('${period}','course')">By Course</button></div><div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${tab==='course'?'Course':'Channel'}</th><th>Actual</th><th>Budget</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>Total</td><td>${fUSD(actualTotal,false)}</td><td>${fUSD(budgetTotal,false)}</td>${varianceCell(deltaTotal,false,false)}${varianceCell(pctTotal,true,false)}</tr></tbody></table></div></div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('Actual Gross Revenue',rows.map(r=>r.actual),C.navy),dsBar('Budget Gross Revenue',rows.map(r=>r.budget),C.magenta)]},options:baseOptions('usd',false)});
+  const rows=keys.map(k=>{const actual=plValue('actual',k,period,view)||0; const forecast=plValue('forecast',k,period,view)||0; return {label:cleanLineLabel(k),actual,forecast,delta:actual-forecast,pct:pctChange(actual,forecast)};}).filter(r=>r.actual!==0||r.forecast!==0);
+  const actualTotal=sum(rows.map(r=>r.actual)), forecastTotal=sum(rows.map(r=>r.forecast));
+  const deltaTotal=actualTotal-forecastTotal, pctTotal=pctChange(actualTotal,forecastTotal);
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.actual,false)}</td><td>${fUSD(r.forecast,false)}</td>${varianceCell(r.delta,false,false)}${varianceCell(r.pct,true,false)}</tr>`).join('');
+  el('drillBody').innerHTML=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderPLGrossRevenueForecastDrilldown('${period}','channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderPLGrossRevenueForecastDrilldown('${period}','course')">By Course</button></div><div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${tab==='course'?'Course':'Channel'}</th><th>Actual</th><th>Forecast</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>Total</td><td>${fUSD(actualTotal,false)}</td><td>${fUSD(forecastTotal,false)}</td>${varianceCell(deltaTotal,false,false)}${varianceCell(pctTotal,true,false)}</tr></tbody></table></div></div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('Actual Gross Revenue',rows.map(r=>r.actual),C.navy),dsBar('Forecast Gross Revenue',rows.map(r=>r.forecast),C.magenta)]},options:baseOptions('usd',false)});
+}
+
+function forecastOutlookEnd(){
+  const configured=DASH?.periods?.forecastTo||DASH?.meta?.forecastTo;
+  if(configured) return configured;
+  const months=(DASH?.pl?.months||[]).filter(m=>m&&m.endsWith('-26'));
+  return months[months.length-1]||'Dec-26';
+}
+function forecastOutlookMonths(){
+  const months=DASH?.pl?.months||[];
+  const end=periodSerial(forecastOutlookEnd());
+  return months.filter(m=>m&&m.endsWith('-26')&&periodSerial(m)<=end);
+}
+function forecastActualCutoff(){
+  return DASH?.periods?.displayActual||DASH?.periods?.actualsTo||DASH?.meta?.actualsTo||latestActualPeriod();
+}
+function isForecastActualMonth(period){
+  return periodSerial(period)<=periodSerial(forecastActualCutoff());
+}
+function forecastMonthBadges(months){
+  return `<div class="metric-pills">${months.map(m=>`<span class="pill"><strong>${h(m)}:</strong> ${isForecastActualMonth(m)?'Actual':'Forecast'}</span>`).join('')}</div>`;
+}
+function plSeriesRangeValue(source,key,periods){
+  const arr=(DASH?.pl?.[source]||{})[key], months=DASH?.pl?.months||[];
+  if(!arr) return null;
+  const vals=periods.map(p=>val(arr,idx(months,p))).filter(v=>v!=null);
+  return vals.length?sum(vals):null;
+}
+function forecastRangeValue(source,row,periods){
+  if(row.pct){
+    const numerator=plSeriesRangeValue(source,row.numerator,periods);
+    const revenue=plSeriesRangeValue(source,'Net Revenue',periods);
+    return numerator!=null&&revenue?numerator/revenue*100:null;
+  }
+  if(row.details&&!row.key){
+    const values=row.details.map(key=>plSeriesRangeValue(source,key,periods)).filter(v=>v!=null);
+    return values.length?sum(values):null;
+  }
+  return plSeriesRangeValue(source,row.key,periods);
+}
+function forecastRowValue(row,periods){
+  return forecastRangeValue('blended',row,periods);
+}
+function forecastKpiCard(label,value,fmt,sub=''){
+  return `<div class="kpi-card"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status flat">FY26</div></div><div class="kpi-value">${fmt(value)}</div><div class="kpi-meta">${h(sub)}</div></div>`;
+}
+function forecastOutlookBridgeValues(periods){
+  const get=rowKey=>plSeriesRangeValue('blended',rowKey,periods)||0;
+  const gross=get('Gross Revenue');
+  const net=get('Net Revenue');
+  return {
+    gross,
+    direct:Math.max(0,gross-net),
+    net,
+    cogs:Math.abs(get('Total: COGS')),
+    grossMargin:get('Gross Margin'),
+    academic:Math.abs(get('Total Academic Support Cost')),
+    cm1:get('Profit Contribution 1'),
+    sm:Math.abs(get('Total: S&M Cost')),
+    cm2:get('Profit Contribution 2'),
+    brand:Math.abs(get('Less: Brand Marketing Cost')),
+    cm3:get('Profit Contribution 3'),
+    indirect:Math.abs(get('Total: Indirect Cost')),
+    ebitda:get('EBITDA')
+  };
+}
+function renderForecast(){
+  const months=forecastOutlookMonths();
+  if(!months.length){
+    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">Forecast Outlook</div><div class="chart-sub">FY2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No FY2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
+    el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 actuals plus remaining forecast',5,body);
+    setNote('forecast');
+    return;
+  }
+  const actualMonths=months.filter(isForecastActualMonth);
+  const forecastMonths=months.filter(m=>!isForecastActualMonth(m));
+  const all=months;
+  const gross=plSeriesRangeValue('blended','Gross Revenue',all);
+  const net=plSeriesRangeValue('blended','Net Revenue',all);
+  const gm=forecastRangeValue('blended',{pct:true,numerator:'Gross Margin'},all);
+  const ebitda=plSeriesRangeValue('blended','EBITDA',all);
+  const ebitdaPct=forecastRangeValue('blended',{pct:true,numerator:'EBITDA'},all);
+  const kpis=[
+    forecastKpiCard('Gross Revenue',gross,fUSD,`${actualMonths.length} actual months + ${forecastMonths.length} forecast months`),
+    forecastKpiCard('Net Revenue',net,fUSD,'FY2026 blended outlook'),
+    forecastKpiCard('Gross Margin %',gm,v=>fPct(v),'Blended full-year margin'),
+    forecastKpiCard('EBITDA',ebitda,fUSD,'FY2026 blended outlook'),
+    forecastKpiCard('EBITDA %',ebitdaPct,v=>fPct(v),'Blended full-year margin')
+  ].join('');
+  const varianceTable=forecastVarianceTable(actualMonths,forecastMonths,all);
+  const outlookTable=forecastOutlookTable(all);
+  const body=`<div class="kpi-grid">${kpis}</div>${forecastMonthBadges(months)}<div class="chart-grid">${chartCard('Gross Revenue & EBITDA Outlook','Monthly FY2026 path; actual months use actuals and future months use forecast.','forecastTrend',false,true)}${chartCard('FY2026 Gross Revenue to EBITDA Bridge','Full-year actual-plus-forecast bridge.','forecastBridge',false,true)}</div>${varianceTable}${outlookTable}`;
+  el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 actuals plus remaining forecast',5,body);
+  setNote('forecast');
+  renderForecastCharts(months);
+}
+function forecastVarianceTable(actualMonths,forecastMonths,allMonths){
+  const rows=PL_ROWS.filter(row=>row.flow||row.expandable||['Add: Non Operating Income','Add: Interest Income'].includes(row.key||''));
+  const html=rows.map(row=>{
+    const actualYtd=forecastRangeValue('actual',row,actualMonths);
+    const forecastYtd=forecastRangeValue('forecast',row,actualMonths);
+    const remaining=forecastRangeValue('forecast',row,forecastMonths);
+    const outlook=forecastRangeValue('blended',row,allMonths);
+    const fullForecast=forecastRangeValue('forecast',row,allMonths);
+    const variance=(outlook!=null&&fullForecast!=null)?outlook-fullForecast:null;
+    return `<tr class="${row.flow?'pl-flow-row':''}"><td>${h(row.label)}</td><td>${plFormat(actualYtd,row)}</td><td>${plFormat(forecastYtd,row)}</td><td>${plFormat(remaining,row)}</td><td>${plFormat(outlook,row)}</td><td>${plFormat(fullForecast,row)}</td>${varianceCell(variance,!!row.pct,!!row.lower)}</tr>`;
+  }).join('');
+  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge</div><div class="pl-table-note">Actual YTD is compared with forecast YTD; FY outlook blends actuals through ${h(forecastActualCutoff())} with remaining forecast.</div></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>Actual YTD</th><th>Forecast YTD</th><th>Remaining Forecast</th><th>FY Outlook</th><th>Full-Year Forecast</th><th>Variance</th></tr></thead><tbody>${html}</tbody></table></div>`;
+}
+function forecastOutlookTable(months){
+  const rows=PL_ROWS.map(row=>{
+    const value=forecastRowValue(row,months);
+    const cls=`${row.flow?'pl-flow-row ':''}${row.expandable?'pl-section-row':''}`;
+    return `<tr class="${cls}"><td>${h(row.label)}</td><td>${plFormat(value,row)}</td></tr>`;
+  }).join('');
+  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Full-Year P&L Outlook</div><div class="pl-table-note">FY2026 actual-plus-forecast basis from ${h(months[0])} to ${h(months[months.length-1])}.</div></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>FY2026 Outlook</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderForecastCharts(months){
+  const gross=months.map(m=>plValue('blended','Gross Revenue',m,'monthly'));
+  const ebitda=months.map(m=>plValue('blended','EBITDA',m,'monthly'));
+  const colors=months.map(m=>isForecastActualMonth(m)?C.navy:'rgba(185,120,24,.42)');
+  const border=months.map(m=>isForecastActualMonth(m)?C.navy:C.amber);
+  chart('forecastTrend',{
+    type:'bar',
+    data:{labels:months,datasets:[
+      {...dsBar('Gross Revenue',gross,C.navy),backgroundColor:colors,borderColor:border},
+      {...dsLine('EBITDA',ebitda,C.magenta),type:'line',yAxisID:'y',borderWidth:2.8,pointRadius:3,tension:0}
+    ]},
+    options:withBarDataLabels(baseOptions('usd',false),{format:'usdCompact',color:C.axis}),
+    plugins:[barDataLabelPlugin]
+  });
+  const values=forecastOutlookBridgeValues(months);
+  const steps=[
+    {label:'Gross Revenue',kind:'checkpoint',display:values.gross},
+    {label:'Direct Sales Costs',kind:'cost',amount:-Math.abs(values.direct)},
+    {label:'Net Revenue',kind:'checkpoint',display:values.net},
+    {label:'COGS',kind:'cost',amount:-Math.abs(values.cogs)},
+    {label:'Gross Margin',kind:'checkpoint',display:values.grossMargin},
+    {label:'Academic Support',kind:'cost',amount:-Math.abs(values.academic)},
+    {label:'CM 1',kind:'checkpoint',display:values.cm1},
+    {label:'S&M Cost',kind:'cost',amount:-Math.abs(values.sm)},
+    {label:'CM 2',kind:'checkpoint',display:values.cm2},
+    {label:'Brand Marketing',kind:'cost',amount:-Math.abs(values.brand)},
+    {label:'CM 3',kind:'checkpoint',display:values.cm3},
+    {label:'Indirect Cost',kind:'cost',amount:-Math.abs(values.indirect)},
+    {label:'EBITDA',kind:'ebitda',display:values.ebitda}
+  ];
+  let running=values.gross||0;
+  const ranges=steps.map(s=>{
+    if(s.kind==='checkpoint'||s.kind==='ebitda'){
+      if(s.kind==='checkpoint') running=s.display||0;
+      return [0,s.display||0];
+    }
+    const start=running;
+    running+=s.amount||0;
+    return [Math.min(start,running),Math.max(start,running)];
+  });
+  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costGradient(context.chart,false):((s.display||0)>=0?C.green:C.red));},borderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costBorder(false):((s.display||0)>=0?C.green:C.red));},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costGradient(context.chart,true):((s.display||0)>=0?C.green:C.red));},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costBorder(true):((s.display||0)>=0?C.green:C.red));},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
 }
 
 function revenueAovCard(){
@@ -2882,7 +3037,6 @@ function costPeriods(layer,basis){
 function finiteNumber(value){return value!=null && Number.isFinite(value);}
 function absOrNull(value){return finiteNumber(value)?Math.abs(value):null;}
 function cashCostAmount(layer,source,period,view=state.view){
-  if(source==='budget' && !isBudgetYear(period)) return null;
   const months=DASH.pl.months, arr=(DASH.pl[source]||{})[layer.plCost];
   if(!arr) return null;
   const endpoint=val(arr,idx(months,period));
@@ -2891,7 +3045,6 @@ function cashCostAmount(layer,source,period,view=state.view){
   return absOrNull(amount);
 }
 function cashDetailAmount(key,source,period,view=state.view){
-  if(source==='budget' && !isBudgetYear(period)) return null;
   const months=DASH.pl.months, arr=(DASH.pl[source]||{})[key];
   if(!arr) return null;
   if(view==='ytd'){
@@ -3061,7 +3214,7 @@ function renderCostTrendChart(layer,basis){
 }
 function costPeriodLabel(period,view=state.view){return view==='ytd'?`YTD ${monthLabelLong(period)}`:monthLabelLong(period);}
 function costComparisonContext(mode,period,view){
-  if(mode==='budget') return {source:'budget',period,view,label:`Budget (${costPeriodLabel(period,view)})`};
+  if(mode==='forecast') return {source:'forecast',period,view,label:`Forecast (${costPeriodLabel(period,view)})`};
   if(mode==='previous_month'){
     const p=prevMonth(period);
     return {source:'actual',period:p,view,label:costPeriodLabel(p,view)};
@@ -3072,8 +3225,8 @@ function costComparisonContext(mode,period,view){
 function costComparisonOptions(layer,basis,period,view){
   const options=[{id:'last_year',label:view==='ytd'?'YTD Last Year':'Same Month Last Year'}];
   if(basis==='cash'){
-    const budgetCtx=costComparisonContext('budget',period,view);
-    if(costContextHasData(layer,basis,budgetCtx)) options.push({id:'budget',label:view==='ytd'?'YTD Budget':'Budget'});
+    const forecastCtx=costComparisonContext('forecast',period,view);
+    if(costContextHasData(layer,basis,forecastCtx)) options.push({id:'forecast',label:view==='ytd'?'YTD Forecast':'Forecast'});
   }
   options.push({id:'previous_month',label:view==='ytd'?'YTD Previous Month':'Previous Month'});
   return options;
@@ -4373,7 +4526,7 @@ function renderWaterfallStepDrilldown(cfg,ctx){
   else renderWaterfallStepSingleDrilldown(cfg,ctx);
 }
 
-function render(){renderNav(); el('topbarTitle').textContent='Shikho MIS Analytics'; const current=PAGES.find(p=>p[0]===state.page); const subtitle=el('topbarSubtitle'); if(subtitle) subtitle.textContent=current?current[2]:'Finance control room'; Object.keys(charts).forEach(destroy); if(state.page==='exec')renderExec(); if(state.page==='pl')renderPL(); if(state.page==='revenue')renderRevenue(); if(state.page==='costs')renderCosts(); if(state.page==='usd')renderUsdPayments(); if(state.page==='sales')renderSales(); if(state.page==='growth')renderGrowth(); if(state.page==='cash')renderCash(); renderNav();}
+function render(){renderNav(); el('topbarTitle').textContent='Shikho MIS Analytics'; const current=PAGES.find(p=>p[0]===state.page); const subtitle=el('topbarSubtitle'); if(subtitle) subtitle.textContent=current?current[2]:'Finance control room'; Object.keys(charts).forEach(destroy); if(state.page==='exec')renderExec(); if(state.page==='pl')renderPL(); if(state.page==='revenue')renderRevenue(); if(state.page==='costs')renderCosts(); if(state.page==='forecast')renderForecast(); if(state.page==='usd')renderUsdPayments(); if(state.page==='sales')renderSales(); if(state.page==='growth')renderGrowth(); if(state.page==='cash')renderCash(); renderNav();}
 function goto(p){
   const previous=state.page;
   state.page=p;
