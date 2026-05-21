@@ -174,7 +174,8 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-backdrop{position:fixed;inset:0;background:rgba(16,27,77,.42);backdrop-filter:blur(6px);z-index:2200;display:none;align-items:center;justify-content:center;padding:24px}
 .modal-backdrop.open{display:flex}
 .modal-card{width:min(1080px,96vw);max-height:88vh;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 24px 80px rgba(16,27,77,.28);display:flex;flex-direction:column}
-.modal-card.forecast-wide{width:min(1440px,98vw)}
+.modal-card.modal-wide,.modal-card.forecast-wide{width:min(1440px,98vw);max-height:92vh}
+.modal-card.modal-analysis{width:min(1560px,98vw);max-height:92vh}
 .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .modal-title{font-size:19px;font-weight:900;color:var(--navy);letter-spacing:-.35px}
 .modal-sub{font-size:12px;color:var(--muted);font-weight:700;margin-top:4px}
@@ -184,15 +185,20 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-family:inherit;font-weight:900;font-size:11px;color:var(--muted);cursor:pointer}
 .modal-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.modal-grid>*{min-width:0}
+.modal-card.modal-wide .modal-grid,.modal-card.forecast-wide .modal-grid{grid-template-columns:minmax(420px,.9fr) minmax(620px,1.25fr)}
+.modal-card.modal-analysis .modal-grid{grid-template-columns:minmax(440px,.85fr) minmax(720px,1.35fr)}
 .modal-card.forecast-table-first .modal-grid{grid-template-columns:1fr}
 .modal-chart-box{height:360px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
 .modal-card.forecast-table-first .modal-chart-box{height:320px}
 .modal-table{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:auto}
+.modal-card.modal-wide .modal-table,.modal-card.modal-analysis .modal-table,.modal-card.forecast-wide .modal-table{overflow:visible}
+.modal-card.modal-wide .modal-table table,.modal-card.modal-analysis .modal-table table,.modal-card.forecast-wide .modal-table table{width:100%;table-layout:auto}
 .modal-card.forecast-wide .modal-table table{min-width:860px}
 .modal-table table th{background:#F7F9FC;color:var(--navy)}
 .modal-note{margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--muted);padding:10px 12px;font-size:12px;font-weight:800}
 .drill-click-note{font-size:10.5px;color:var(--magenta);font-weight:900;text-transform:uppercase;letter-spacing:.5px}
-@media(max-width:900px){.modal-grid{grid-template-columns:1fr}.modal-chart-box{height:300px}}
+@media(max-width:900px){.modal-grid,.modal-card.modal-wide .modal-grid,.modal-card.modal-analysis .modal-grid,.modal-card.forecast-wide .modal-grid{grid-template-columns:1fr}.modal-card.modal-wide,.modal-card.modal-analysis,.modal-card.forecast-wide{width:min(98vw,760px)}.modal-chart-box{height:300px}.modal-card.modal-wide .modal-table,.modal-card.modal-analysis .modal-table,.modal-card.forecast-wide .modal-table{overflow:auto}}
 
 @media(max-width:1180px){.kpi-grid,.kpi-grid.forecast-kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.insight-grid{grid-template-columns:1fr}.topbar{overflow:auto}}
 @media(max-width:1180px){.usd-premium-grid{grid-template-columns:1fr}}
@@ -1773,7 +1779,7 @@ function withBarDataLabels(options,opts={}){
   return out;
 }
 
-function chart(id, cfg){destroy(id); const canvas=el(id); if(!canvas)return; charts[id]=new Chart(canvas,applyHonestAxes(cfg));}
+function chart(id, cfg){destroy(id); const canvas=el(id); if(!canvas)return; if(id==='execDrillChart') applyDrilldownLayout(); charts[id]=new Chart(canvas,applyHonestAxes(cfg));}
 function baseOptions(kind='usd', stacked=false){return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,padding:14,color:C.axis,font:{weight:700}}},tooltip:{callbacks:{label:tooltipLabel(kind)}}},scales:{x:{stacked,grid:{display:false},ticks:{color:C.axis,maxTicksLimit:12,font:{size:10,weight:700}}},y:{stacked,beginAtZero:false,min:0,grid:{color:C.grid},ticks:{...yTicks(kind),color:C.axis}}}};}
 function lineChart(id, labels, datasets, kind='usd'){chart(id,{type:'line',data:{labels,datasets},options:baseOptions(kind,false)})}
 function barLabelFormat(kind){return kind==='num'?'num':kind==='pct'?'pct':'usdCompact';}
@@ -4484,7 +4490,35 @@ function ensureModal(){
   div.innerHTML=`<div class="modal-card"><div class="modal-head"><div><div class="modal-title" id="drillTitle"></div><div class="modal-sub" id="drillSub"></div></div><button class="modal-close" onclick="closeExecDrilldown()">×</button></div><div class="modal-body" id="drillBody"></div></div>`;
   div.addEventListener('click',e=>{if(e.target.id==='execDrillModal')closeExecDrilldown();});
   document.body.appendChild(div);
+  const body=div.querySelector('#drillBody');
+  if(body) new MutationObserver(()=>applyDrilldownLayout()).observe(body,{childList:true});
   return div;
+}
+function resetDrilldownLayout(){
+  const card=el('execDrillModal')?.querySelector('.modal-card');
+  if(card) card.classList.remove('modal-wide','modal-dense','modal-analysis','forecast-wide','forecast-table-first');
+}
+function applyDrilldownLayout(options={}){
+  const modal=el('execDrillModal');
+  const card=modal?.querySelector('.modal-card');
+  const body=el('drillBody');
+  if(!card||!body) return;
+  card.classList.remove('modal-wide','modal-dense','modal-analysis','forecast-wide','forecast-table-first');
+  const tables=[...body.querySelectorAll('.modal-table table')];
+  if(!tables.length) return;
+  const stats=tables.reduce((acc,table)=>{
+    const header=[...table.querySelectorAll('thead tr')].reduce((max,row)=>Math.max(max,row.cells.length),0);
+    const rows=table.querySelectorAll('tbody tr').length;
+    return {cols:Math.max(acc.cols,header),rows:Math.max(acc.rows,rows)};
+  },{cols:0,rows:0});
+  const text=body.textContent||'';
+  const isComparison=/Variance|Var %|Forecast|FY2025|Previous Month|Same Month|Actual YTD|Remaining Forecast/i.test(text);
+  const isBreakdown=/Drilldown|Category|Cost Item|Calculation Step|Line Item/i.test(text);
+  const wide=options.wide||options.dense||stats.cols>=5||(stats.cols>=4&&isComparison)||(stats.rows>=8&&isBreakdown);
+  const analysis=options.analysis||stats.cols>=6||(stats.cols>=5&&stats.rows>=6);
+  if(wide) card.classList.add('modal-wide','modal-dense');
+  if(analysis) card.classList.add('modal-analysis');
+  requestAnimationFrame(()=>Object.values(charts).forEach(c=>{if(c&&typeof c.resize==='function') c.resize();}));
 }
 function openExecDrilldown(metric,isPrior){
   if(metric==='Gross Revenue'){
@@ -4500,10 +4534,8 @@ function openExecDrilldown(metric,isPrior){
 }
 function closeExecDrilldown(){
   const modal=el('execDrillModal');
-  if(modal){
-    modal.classList.remove('open');
-    modal.querySelector('.modal-card')?.classList.remove('forecast-wide','forecast-table-first');
-  }
+  if(modal) modal.classList.remove('open');
+  resetDrilldownLayout();
   destroy('execDrillChart');
 }
 function renderGrossRevenueDrilldown(ctx,tab='channel'){
