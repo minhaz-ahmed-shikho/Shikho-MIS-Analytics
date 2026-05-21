@@ -2819,7 +2819,7 @@ function forecastDrillConfig(stepLabel){
   return configs[stepLabel]||null;
 }
 function openForecastRevenueMonthDrilldown(period,tab='channel'){
-  forecastOpenModal(`${period} Gross Revenue Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Revenue plan breakdown`,'table');
+  forecastOpenModal(`${period} Gross Revenue Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Revenue plan breakdown`,'wide');
   renderForecastRevenueMonthDrilldown(period,tab);
 }
 function renderForecastRevenueMonthDrilldown(period,tab='channel'){
@@ -2840,10 +2840,12 @@ function renderForecastRevenueMonthDrilldown(period,tab='channel'){
   const totalPrior=forecastPeriodValue('actual','Gross Revenue',priorPeriod,false);
   if(totalCurrent!=null||totalPrior!=null) rows.push({label:'Total Gross Revenue',current:totalCurrent,prior:totalPrior,lowerBetter:false,total:true});
   const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course')">By Course</button></div>`;
-  el('drillBody').innerHTML=`${tabs}${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}`;
+  const chartRows=rows.filter(r=>!r.total);
+  el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:chartRows.map(r=>r.label),datasets:[dsBar(currentLabel,chartRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,chartRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
 }
 function openForecastEbitdaMonthDrilldown(period){
-  forecastOpenModal(`${period} EBITDA Path Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Key P&L checkpoints`,'table');
+  forecastOpenModal(`${period} EBITDA Path Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Key P&L checkpoints`,'wide');
   const source=isForecastActualMonth(period)?'actual':'forecast';
   const priorPeriod=forecastSameMonthFY2025(period);
   const currentLabel=`${period} ${isForecastActualMonth(period)?'Actual':'Forecast'}`;
@@ -2866,7 +2868,8 @@ function openForecastEbitdaMonthDrilldown(period){
     prior:forecastPeriodValue('actual',key,priorPeriod,abs),
     lowerBetter:abs||forecastCostLikeKey(key)
   })).filter(r=>r.current!=null||r.prior!=null);
-  el('drillBody').innerHTML=forecastComparisonTableHtml(flowRows,currentLabel,priorLabel);
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(flowRows,currentLabel,priorLabel)}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:flowRows.map(r=>r.label),datasets:[dsBar(currentLabel,flowRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,flowRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
 }
 function openForecastWaterfallDrilldown(stepLabel){
   if(stepLabel==='Gross Revenue'){
@@ -2875,11 +2878,11 @@ function openForecastWaterfallDrilldown(stepLabel){
   }
   const cfg=forecastDrillConfig(stepLabel);
   if(!cfg) return;
-  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'table');
+  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastWaterfallDrilldown(cfg);
 }
 function openForecastGrossRevenueDrilldown(tab='channel'){
-  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'table');
+  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastGrossRevenueDrilldown(tab);
 }
 function renderForecastGrossRevenueDrilldown(tab='channel'){
@@ -2897,7 +2900,8 @@ function renderForecastWaterfallDrilldown(cfg,tabsHtml=''){
     prior:forecastDetailValue('actual',key,priorMonths,!!cfg.abs),
     lowerBetter:!!cfg.lowerBetter||forecastCostLikeKey(key)
   })).filter(row=>row.current!=null||row.prior!=null);
-  el('drillBody').innerHTML=`${tabsHtml}${forecastComparisonTableHtml(rows,'Blended FY2026','FY2025 Actual')}`;
+  el('drillBody').innerHTML=`${tabsHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,'Blended FY2026','FY2025 Actual')}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('Blended FY2026',rows.map(r=>r.current||0),C.navy),dsBar('FY2025 Actual',rows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
 }
 
 function revenueAovCard(){
