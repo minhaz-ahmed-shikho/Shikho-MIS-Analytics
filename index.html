@@ -59,7 +59,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Gibson','Inter
 .data-status.ok{border-color:#D7EBDD;background:#F7FCF9;color:#2E6E52}
 .data-status-message{flex-basis:100%;line-height:1.45}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
-.kpi-grid.forecast-kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpi-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .kpi-card:before{content:'';position:absolute;inset:0 auto 0 0;width:5px;background:var(--navy)}
 .kpi-card.good:before{background:var(--green)} .kpi-card.bad:before{background:var(--red)} .kpi-card.watch:before{background:var(--amber)}
@@ -174,7 +173,6 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-backdrop{position:fixed;inset:0;background:rgba(16,27,77,.42);backdrop-filter:blur(6px);z-index:2200;display:none;align-items:center;justify-content:center;padding:24px}
 .modal-backdrop.open{display:flex}
 .modal-card{width:min(1080px,96vw);max-height:88vh;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 24px 80px rgba(16,27,77,.28);display:flex;flex-direction:column}
-.modal-card.forecast-wide{width:min(1440px,98vw)}
 .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .modal-title{font-size:19px;font-weight:900;color:var(--navy);letter-spacing:-.35px}
 .modal-sub{font-size:12px;color:var(--muted);font-weight:700;margin-top:4px}
@@ -184,19 +182,16 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-family:inherit;font-weight:900;font-size:11px;color:var(--muted);cursor:pointer}
 .modal-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-.modal-card.forecast-table-first .modal-grid{grid-template-columns:1fr}
 .modal-chart-box{height:360px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
-.modal-card.forecast-table-first .modal-chart-box{height:320px}
 .modal-table{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:auto}
-.modal-card.forecast-wide .modal-table table{min-width:860px}
 .modal-table table th{background:#F7F9FC;color:var(--navy)}
 .modal-note{margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--muted);padding:10px 12px;font-size:12px;font-weight:800}
 .drill-click-note{font-size:10.5px;color:var(--magenta);font-weight:900;text-transform:uppercase;letter-spacing:.5px}
 @media(max-width:900px){.modal-grid{grid-template-columns:1fr}.modal-chart-box{height:300px}}
 
-@media(max-width:1180px){.kpi-grid,.kpi-grid.forecast-kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.insight-grid{grid-template-columns:1fr}.topbar{overflow:auto}}
+@media(max-width:1180px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.insight-grid{grid-template-columns:1fr}.topbar{overflow:auto}}
 @media(max-width:1180px){.usd-premium-grid{grid-template-columns:1fr}}
-@media(max-width:760px){.sidebar{width:0}.topbar,.main{left:0;margin-left:0}.main{padding:16px}.kpi-grid,.kpi-grid.forecast-kpi-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.sidebar{width:0}.topbar,.main{left:0;margin-left:0}.main{padding:16px}.kpi-grid{grid-template-columns:1fr}}
 
 
 .cost-driver-card{height:100%;min-height:330px;padding:0;background:#fff;border:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;overflow:hidden}
@@ -2547,12 +2542,14 @@ function forecastOutlookMonths(){
   const end=periodSerial(forecastOutlookEnd());
   return months.filter(m=>m&&m.endsWith('-26')&&periodSerial(m)<=end);
 }
-const FORECAST_TARGET_EBITDA=500000;
 function forecastActualCutoff(){
   return DASH?.periods?.displayActual||DASH?.periods?.actualsTo||DASH?.meta?.actualsTo||latestActualPeriod();
 }
 function isForecastActualMonth(period){
   return periodSerial(period)<=periodSerial(forecastActualCutoff());
+}
+function forecastMonthBadges(months){
+  return `<div class="metric-pills">${months.map(m=>`<span class="pill"><strong>${h(m)}:</strong> ${isForecastActualMonth(m)?'Actual':'Forecast'}</span>`).join('')}</div>`;
 }
 function plSeriesRangeValue(source,key,periods){
   const arr=(DASH?.pl?.[source]||{})[key], months=DASH?.pl?.months||[];
@@ -2572,12 +2569,11 @@ function forecastRangeValue(source,row,periods){
   }
   return plSeriesRangeValue(source,row.key,periods);
 }
+function forecastRowValue(row,periods){
+  return forecastRangeValue('blended',row,periods);
+}
 function forecastKpiCard(label,value,fmt,sub=''){
   return `<div class="kpi-card"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status flat">FY26</div></div><div class="kpi-value">${fmt(value)}</div><div class="kpi-meta">${h(sub)}</div></div>`;
-}
-function forecastRequiredEbitdaAverage(actualMonths,forecastMonths){
-  const actualYtd=plSeriesRangeValue('actual','EBITDA',actualMonths)||0;
-  return forecastMonths.length?(FORECAST_TARGET_EBITDA-actualYtd)/forecastMonths.length:null;
 }
 function forecastOutlookBridgeValues(periods){
   const get=rowKey=>plSeriesRangeValue('blended',rowKey,periods)||0;
@@ -2599,8 +2595,95 @@ function forecastOutlookBridgeValues(periods){
     ebitda:get('EBITDA')
   };
 }
+// ── FORECAST OUTLOOK — REBUILT ──────────────────────────────────────────────
+function forecastGapStatus(v){
+  if(v==null) return {label:'—',cls:'flat'};
+  if(v>=400000) return {label:'On Track',cls:'good'};
+  if(v>=300000) return {label:'At Risk',cls:'watch'};
+  return {label:'Off Track',cls:'bad'};
+}
+function forecastDecisionCallout(actualMonths,forecastMonths){
+  const FY_TARGET=500000;
+  const actualEbitda=plSeriesRangeValue('actual','EBITDA',actualMonths)||0;
+  const remaining=forecastMonths.length;
+  if(!remaining) return '';
+  const required=(FY_TARGET-actualEbitda)/remaining;
+  const forecastTotal=plSeriesRangeValue('forecast','EBITDA',forecastMonths)||0;
+  const forecastAvg=forecastTotal/remaining;
+  const totalGap=forecastTotal-(FY_TARGET-actualEbitda);
+  const gapLabel=totalGap>=0?'Surplus':'Shortfall';
+  const sign=totalGap>=0?'+':'';
+  return `${h(forecastMonths[0])}–${h(forecastMonths[forecastMonths.length-1])} must average <strong>${fUSD(required,false)}/month</strong> EBITDA. Forecast implies <strong>${fUSD(forecastAvg,false)}/month</strong>. ${gapLabel}: <strong>${sign}${fUSD(totalGap,false)}</strong>.`;
+}
+function toggleFcVarRow(id){
+  state.fcVarExpanded=state.fcVarExpanded||{};
+  state.fcVarExpanded[id]=!state.fcVarExpanded[id];
+  const months=forecastOutlookMonths();
+  const aM=months.filter(isForecastActualMonth);
+  const fM=months.filter(m=>!isForecastActualMonth(m));
+  const node=el('fcVarTable');
+  if(node) node.outerHTML=forecastVarianceTable(aM,fM,months);
+}
+function openForecastMonthDrilldown(month){
+  if(!month) return;
+  const isActual=isForecastActualMonth(month);
+  const modal=ensureModal();
+  modal.classList.add('open');
+  el('drillTitle').textContent=`${monthLabelLong(month)} — ${isActual?'Actual':'Forecast'} P&L`;
+  el('drillSub').textContent=isActual?'Locked actual. All figures final.':'Forecast values — subject to revision.';
+  renderForecastMonthDrilldownBody(month,isActual);
+}
+function renderForecastMonthDrilldownBody(month,isActual){
+  const src=isActual?'actual':'forecast';
+  const get=k=>plSeriesRangeValue(src,k,[month]);
+  const getF=k=>plSeriesRangeValue('forecast',k,[month]);
+  const flowKeys=[
+    {label:'Gross Revenue',key:'Gross Revenue'},{label:'Net Revenue',key:'Net Revenue'},
+    {label:'Gross Margin',key:'Gross Margin'},{label:'COGS',key:'Total: COGS',lower:true},
+    {label:'S&M Cost',key:'Total: S&M Cost',lower:true},{label:'CM2',key:'Profit Contribution 2'},
+    {label:'Brand Marketing',key:'Less: Brand Marketing Cost',lower:true},
+    {label:'Indirect Cost',key:'Total: Indirect Cost',lower:true},{label:'EBITDA',key:'EBITDA'}
+  ];
+  const channelKeys=['Telesales','Installment Recovery','Inbound','Retention'];
+  const channelRows=channelKeys.map(k=>({label:k,value:get(k)||0})).filter(r=>r.value!==0);
+  const tableRows=flowKeys.map(row=>{
+    const v=get(row.key); if(v==null) return '';
+    const fv=getF(row.key);
+    const showVar=isActual&&fv!=null;
+    const varCells=showVar?varianceCell(v-fv,false,!!row.lower)+varianceCell(pctChange(v,fv),true,!!row.lower):'<td>—</td><td>—</td>';
+    return `<tr><td>${row.label}</td><td>${fUSD(v,false)}</td>${varCells}</tr>`;
+  }).filter(Boolean).join('');
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Metric</th><th>${isActual?'Actual':'Forecast'}</th><th>vs F Var</th><th>vs F %</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+  barChart('execDrillChart',channelRows.map(r=>r.label),[dsBar('Revenue by Channel',channelRows.map(r=>r.value),isActual?C.navy:'rgba(185,120,24,.7)')],'usd',false);
+}
+function openForecastBridgeDrilldown(stepLabel){
+  const cfg=drilldownConfigForStep(stepLabel);
+  if(!cfg) return;
+  const months=forecastOutlookMonths();
+  const aM=months.filter(isForecastActualMonth);
+  const fM=months.filter(m=>!isForecastActualMonth(m));
+  const modal=ensureModal();
+  modal.classList.add('open');
+  el('drillTitle').textContent=cfg.title+' — Full Year Outlook';
+  el('drillSub').textContent=`FY2026 blended: actuals through ${h(forecastActualCutoff())}, forecast thereafter`;
+  renderForecastBridgeStepDrilldown(cfg,months,aM,fM);
+}
+function renderForecastBridgeStepDrilldown(cfg,months,aM,fM){
+  const rows=cfg.keys.map(key=>{
+    const aYtd=Math.abs(plSeriesRangeValue('actual',key,aM)||0);
+    const remF=Math.abs(plSeriesRangeValue('forecast',key,fM)||0);
+    const fyTotal=Math.abs(plSeriesRangeValue('blended',key,months)||0);
+    return {label:cleanLineLabel(key),aYtd,remF,fyTotal};
+  }).filter(r=>r.fyTotal!==0);
+  const tA=sum(rows.map(r=>r.aYtd)),tF=sum(rows.map(r=>r.remF)),tFY=sum(rows.map(r=>r.fyTotal));
+  const monthly=months.map(m=>Math.abs(plSeriesRangeValue('blended',cfg.totalKey||cfg.keys[0],[m])||0));
+  const mC=months.map(m=>isForecastActualMonth(m)?C.navy:'rgba(185,120,24,.42)');
+  const mB=months.map(m=>isForecastActualMonth(m)?C.navy:C.amber);
+  const tRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.aYtd,false)}</td><td>${fUSD(r.remF,false)}</td><td>${fUSD(r.fyTotal,false)}</td></tr>`).join('');
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>Actual YTD</th><th>Remaining Forecast</th><th>FY Total</th></tr></thead><tbody>${tRows}<tr class="total-row"><td>${cfg.totalLabel||'Total'}</td><td>${fUSD(tA,false)}</td><td>${fUSD(tF,false)}</td><td>${fUSD(tFY,false)}</td></tr></tbody></table></div></div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:months,datasets:[{...dsBar('Monthly',monthly,C.navy),backgroundColor:mC,borderColor:mB,maxBarThickness:40}]},options:withBarDataLabels(baseOptions('usd',false),{format:'usdCompact',color:C.axis}),plugins:[barDataLabelPlugin]});
+}
 function renderForecast(){
-  state.forecastExpanded=state.forecastExpanded||{};
   const months=forecastOutlookMonths();
   if(!months.length){
     const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">Forecast Outlook</div><div class="chart-sub">FY2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No FY2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
@@ -2608,290 +2691,69 @@ function renderForecast(){
     setNote('forecast');
     return;
   }
+  state.forecastMetric=state.forecastMetric||'EBITDA';
+  state.fcVarExpanded=state.fcVarExpanded||{};
   const actualMonths=months.filter(isForecastActualMonth);
   const forecastMonths=months.filter(m=>!isForecastActualMonth(m));
-  const all=months;
-  const gross=plSeriesRangeValue('blended','Gross Revenue',all);
-  const grossActual=plSeriesRangeValue('actual','Gross Revenue',actualMonths);
-  const grossForecast=plSeriesRangeValue('forecast','Gross Revenue',forecastMonths);
-  const ebitda=plSeriesRangeValue('blended','EBITDA',all);
-  const ebitdaGap=(ebitda||0)-FORECAST_TARGET_EBITDA;
-  const kpis=[
-    forecastKpiCard('FY Gross Revenue Outlook',gross,fUSD,`${actualMonths.length} actual months + ${forecastMonths.length} forecast months`),
-    forecastKpiCard('Revenue Actual YTD',grossActual,fUSD,`${h(actualMonths[0]||'Jan-26')} to ${h(actualMonths[actualMonths.length-1]||forecastActualCutoff())}`),
-    forecastKpiCard('Revenue Forecast To-Go',grossForecast,fUSD,`${h(forecastMonths[0]||'May-26')} to ${h(forecastMonths[forecastMonths.length-1]||forecastOutlookEnd())}`),
-    forecastKpiCard('FY EBITDA Outlook',ebitda,fUSD,'FY2026 blended outlook'),
-    forecastKpiCard('EBITDA Target Gap',ebitdaGap,fUSD,`vs ${fUSD(FORECAST_TARGET_EBITDA,false)} target`)
-  ].join('');
-  const varianceTable=forecastVarianceTable(actualMonths,forecastMonths,all);
-  const body=`<div class="kpi-grid forecast-kpi-grid">${kpis}</div><div class="chart-grid">${chartCard('Monthly Gross Revenue Plan','FY2026 gross revenue path; navy is actual and amber is forecast.','forecastRevenueTrend',false,true,drillNote())}${chartCard('Monthly EBITDA Path','FY2026 EBITDA path with the May-Dec monthly average required to hit the $500K target.','forecastEbitdaTrend',false,true,drillNote())}</div><div class="chart-grid full">${chartCard('FY Revenue to EBITDA Bridge','Full-year revenue, cost, margin and EBITDA flow with the remaining gap to target.','forecastBridge',false,true,drillNote())}</div>${varianceTable}`;
-  el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 gross revenue plan and EBITDA target delivery',5,body);
+  const ebitdaOutlook=plSeriesRangeValue('blended','EBITDA',months);
+  const FY_TARGET=500000;
+  const gap=ebitdaOutlook!=null?ebitdaOutlook-FY_TARGET:null;
+  const status=forecastGapStatus(ebitdaOutlook);
+  const gapCls=gap!=null&&gap>=0?'good':'bad';
+  const kpi1=`<div class="kpi-card ${status.cls}"><div class="kpi-top"><div class="kpi-label">${labelIcon('FY26 EBITDA Outlook')}</div><div class="kpi-status ${status.cls}">${status.label}</div></div><div class="kpi-value">${ebitdaOutlook!=null?fUSD(ebitdaOutlook):'—'}</div><div class="kpi-meta"><span class="badge">Actual through ${h(forecastActualCutoff())} + Forecast ${h(forecastMonths[0]||'')}–${h(forecastMonths[forecastMonths.length-1]||'')}</span></div></div>`;
+  const kpi2=`<div class="kpi-card ${gapCls}"><div class="kpi-top"><div class="kpi-label">${labelIcon('Gap to $500K Target')}</div><div class="kpi-status ${gapCls}">${gap!=null?(gap>=0?'Above Target':'Below Target'):'—'}</div></div><div class="kpi-value">${gap!=null?(gap>=0?'+':'')+fUSD(gap):'—'}</div><div class="kpi-meta"><span class="badge ${gapCls}">${ebitdaOutlook!=null?fPct(ebitdaOutlook/FY_TARGET*100)+' of $500K target':''}</span></div></div>`;
+  const metricOptions=[['Gross Revenue','Gross Revenue'],['Net Revenue','Net Revenue'],['Gross Margin','Gross Margin'],['Profit Contribution 2','CM2'],['EBITDA','EBITDA']].map(([v,l])=>`<option value="${v}"${state.forecastMetric===v?' selected':''}>${l}</option>`).join('');
+  const pathAction=`<select class="small-select" onchange="state.forecastMetric=this.value;renderForecastCharts(forecastOutlookMonths())">${metricOptions}</select>${drillNote()}`;
+  const decision=forecastDecisionCallout(actualMonths,forecastMonths);
+  const decisionHtml=decision?`<div class="data-status ok" style="margin:0 0 16px"><div class="data-status-message"><strong>Path to $500K EBITDA:</strong> ${decision}</div></div>`:'';
+  const varianceTable=forecastVarianceTable(actualMonths,forecastMonths,months);
+  const body=`<div class="kpi-grid" style="grid-template-columns:1fr 1fr;max-width:680px">${kpi1}${kpi2}</div>${decisionHtml}<div class="chart-grid full">${chartCard('FY2026 Monthly Path','Actual (solid navy) and forecast (amber). Click any bar to drill into that month\'s P&L breakdown.','forecastTrend',false,true,pathAction)}</div><div class="chart-grid full">${chartCard('FY2026 Gross Revenue to EBITDA Bridge','Blended full-year outlook. Click any cost step to see actual YTD vs remaining forecast breakdown.','forecastBridge',false,true)}</div>${varianceTable}`;
+  el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 actuals plus remaining forecast',5,body);
   setNote('forecast');
   renderForecastCharts(months);
 }
 function forecastVarianceTable(actualMonths,forecastMonths,allMonths){
-  const rows=PL_ROWS.filter(row=>row.flow||row.expandable||['Add: Non Operating Income','Add: Interest Income'].includes(row.key||''));
+  state.fcVarExpanded=state.fcVarExpanded||{};
+  const rows=PL_ROWS.filter(row=>row.flow||row.expandable);
   const html=rows.map(row=>{
     const actualYtd=forecastRangeValue('actual',row,actualMonths);
     const forecastYtd=forecastRangeValue('forecast',row,actualMonths);
-    const toGo=forecastRangeValue('forecast',row,forecastMonths);
     const outlook=forecastRangeValue('blended',row,allMonths);
-    const variance=(actualYtd!=null&&forecastYtd!=null)?actualYtd-forecastYtd:null;
-    const open=row.expandable&&state.forecastExpanded[row.id];
-    const icon=row.expandable?`<span class="pl-expander">${open?'-':'+'}</span>`:'<span class="pl-placeholder"></span>';
-    const click=row.expandable?` onclick="toggleForecastRow('${row.id}')"`:'';
-    const main=`<tr class="${row.flow?'pl-flow-row ':''}${row.expandable?'pl-row-main expandable pl-section-row':'pl-row-main'}"${click}><td>${icon}${h(row.label)}</td><td>${plFormat(actualYtd,row)}</td><td>${plFormat(forecastYtd,row)}</td>${varianceCell(variance,!!row.pct,!!row.lower)}<td>${plFormat(toGo,row)}</td><td>${plFormat(outlook,row)}</td></tr>`;
-    const children=open?(row.details||[]).map(k=>{
-      const drow={label:cleanLineLabel(k),key:k,lower:row.lower};
-      const da=forecastRangeValue('actual',drow,actualMonths);
-      const df=forecastRangeValue('forecast',drow,actualMonths);
-      const dt=forecastRangeValue('forecast',drow,forecastMonths);
-      const dout=forecastRangeValue('blended',drow,allMonths);
-      const dv=(da!=null&&df!=null)?da-df:null;
-      return `<tr class="${plDetailClass(row.id,k)}"><td>${h(drow.label)}</td><td>${fUSD(da,false)}</td><td>${fUSD(df,false)}</td>${varianceCell(dv,false,!!row.lower)}<td>${fUSD(dt,false)}</td><td>${fUSD(dout,false)}</td></tr>`;
-    }).join(''):'';
-    return main+children;
+    const variance=actualYtd!=null&&forecastYtd!=null?actualYtd-forecastYtd:null;
+    const isOpen=row.expandable&&state.fcVarExpanded[row.id];
+    const expander=row.expandable?`<span class="pl-expander" onclick="event.stopPropagation();toggleFcVarRow('${row.id}')">${isOpen?'−':'+'}</span>`:'<span class="pl-placeholder"></span>';
+    const cls=`${row.flow?'pl-flow-row':''}${row.expandable?' pl-row-main pl-section-row':''}`;
+    const clickAttr=row.expandable?` onclick="toggleFcVarRow('${row.id}')" style="cursor:pointer"`:'';
+    let children='';
+    if(isOpen&&row.details){
+      children=row.details.map(k=>{
+        const da=plSeriesRangeValue('actual',k,actualMonths);
+        const df=plSeriesRangeValue('forecast',k,actualMonths);
+        const dbl=plSeriesRangeValue('blended',k,allMonths);
+        const dv=da!=null&&df!=null?da-df:null;
+        return `<tr class="pl-child-row"><td style="padding-left:44px">${cleanLineLabel(k)}</td><td>${da!=null?fUSD(da,false):'—'}</td><td>${df!=null?fUSD(df,false):'—'}</td>${varianceCell(dv,false,!!row.lower)}<td>${dbl!=null?fUSD(dbl,false):'—'}</td></tr>`;
+      }).join('');
+    }
+    return `<tr class="${cls}"${clickAttr}><td>${expander}${h(row.label)}</td><td>${plFormat(actualYtd,row)}</td><td>${plFormat(forecastYtd,row)}</td>${varianceCell(variance,!!row.pct,!!row.lower)}<td>${plFormat(outlook,row)}</td></tr>${children}`;
   }).join('');
-  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge</div><div class="pl-table-note">Actual YTD is compared with forecast YTD; expand major sections for line-item detail.</div></div></div><table class="pl-table"><thead><tr><th>Line Item</th><th>Actual YTD</th><th>Forecast YTD</th><th>Variance</th><th>Forecast To-Go</th><th>Blended FY</th></tr></thead><tbody>${html}</tbody></table></div>`;
-}
-function toggleForecastRow(id){
-  state.forecastExpanded=state.forecastExpanded||{};
-  state.forecastExpanded[id]=!state.forecastExpanded[id];
-  renderForecast();
-}
-function forecastSplitPlugin(labels){
-  return {id:'forecastSplitPlugin',afterDraw(chart){
-    let cut=-1;
-    labels.forEach((m,i)=>{ if(isForecastActualMonth(m)) cut=i; });
-    if(cut<0||cut>=labels.length-1) return;
-    const meta=chart.getDatasetMeta(0);
-    const left=meta?.data?.[cut]?.x, right=meta?.data?.[cut+1]?.x;
-    if(left==null||right==null) return;
-    const {ctx,chartArea}=chart, x=(left+right)/2;
-    ctx.save();
-    ctx.setLineDash([5,5]);
-    ctx.strokeStyle='rgba(126,136,154,.62)';
-    ctx.lineWidth=1.25;
-    ctx.beginPath();
-    ctx.moveTo(x,chartArea.top+4);
-    ctx.lineTo(x,chartArea.bottom);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle=C.grey;
-    ctx.font='800 10px Inter, Poppins, sans-serif';
-    ctx.textAlign='right';
-    ctx.fillText('Actual',x-8,chartArea.top+12);
-    ctx.textAlign='left';
-    ctx.fillText('Forecast',x+8,chartArea.top+12);
-    ctx.restore();
-  }};
+  return `<div class="table-wrap" id="fcVarTable"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge</div><div class="pl-table-note">Actual YTD vs locked forecast for ${h(actualMonths[0]||'')}–${h(actualMonths[actualMonths.length-1]||'')}. FY Outlook = actuals + forecast ${h(forecastMonths[0]||'')}–${h(forecastMonths[forecastMonths.length-1]||'')}. Click expandable rows for line-item detail.</div></div></div><table class="pl-table"><thead><tr><th>P&L Line Item</th><th>Actual YTD</th><th>Forecast YTD</th><th>Variance</th><th>FY Outlook</th></tr></thead><tbody>${html}</tbody></table></div>`;
 }
 function renderForecastCharts(months){
-  const actualMonths=months.filter(isForecastActualMonth);
-  const forecastMonths=months.filter(m=>!isForecastActualMonth(m));
-  const colors=months.map(m=>isForecastActualMonth(m)?C.navy:'rgba(185,120,24,.42)');
-  const border=months.map(m=>isForecastActualMonth(m)?C.navy:C.amber);
-  const revenueValues=months.map(m=>plValue('blended','Gross Revenue',m,'monthly'));
-  chart('forecastRevenueTrend',{
-    type:'bar',
-    data:{labels:months,datasets:[{...dsBar('Gross Revenue',revenueValues,C.navy),backgroundColor:colors,borderColor:border}]},
-    options:withBarDataLabels({...baseOptions('usd',false),interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{event.native.target.style.cursor=elements.length?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const period=months[elements[0].index]; if(period) openForecastRevenueMonthDrilldown(period,'channel');}}, {format:'usdCompact',color:C.axis}),
-    plugins:[forecastSplitPlugin(months),barDataLabelPlugin]
-  });
-  const ebitdaValues=months.map(m=>plValue('blended','EBITDA',m,'monthly'));
-  const requiredAvg=forecastRequiredEbitdaAverage(actualMonths,forecastMonths);
-  const ebitdaDatasets=[{...dsBar('EBITDA',ebitdaValues,C.navy),backgroundColor:colors,borderColor:border}];
-  if(requiredAvg!=null) ebitdaDatasets.push({...dsLine('May-Dec required avg',months.map(m=>isForecastActualMonth(m)?null:requiredAvg),C.magenta),borderDash:[6,4],borderWidth:2.6,pointRadius:0});
-  chart('forecastEbitdaTrend',{
-    type:'bar',
-    data:{labels:months,datasets:ebitdaDatasets},
-    options:withBarDataLabels({...baseOptions('usd',false),interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{event.native.target.style.cursor=elements.length?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const period=months[elements[0].index]; if(period) openForecastEbitdaMonthDrilldown(period);}}, {format:'usdCompact',color:C.axis}),
-    plugins:[forecastSplitPlugin(months),barDataLabelPlugin]
-  });
-  const values=forecastOutlookBridgeValues(months);
-  const ebitdaGap=(values.ebitda||0)-FORECAST_TARGET_EBITDA;
-  const steps=[
-    {label:'Gross Revenue',kind:'checkpoint',display:values.gross,drill:'Gross Revenue'},
-    {label:'Direct Sales Costs',kind:'cost',amount:-Math.abs(values.direct),drill:'Direct Sales Costs'},
-    {label:'Net Revenue',kind:'checkpoint',display:values.net,drill:'Net Revenue'},
-    {label:'COGS',kind:'cost',amount:-Math.abs(values.cogs),drill:'COGS'},
-    {label:'Gross Margin',kind:'checkpoint',display:values.grossMargin,drill:'Gross Margin'},
-    {label:'Academic Support',kind:'cost',amount:-Math.abs(values.academic),drill:'Academic Support'},
-    {label:'CM 1',kind:'checkpoint',display:values.cm1,drill:'CM 1'},
-    {label:'S&M Cost',kind:'cost',amount:-Math.abs(values.sm),drill:'S&M Cost'},
-    {label:'CM 2',kind:'checkpoint',display:values.cm2,drill:'CM 2'},
-    {label:'Brand Marketing',kind:'cost',amount:-Math.abs(values.brand),drill:'Brand Marketing'},
-    {label:'CM 3',kind:'checkpoint',display:values.cm3,drill:'CM 3'},
-    {label:'Indirect Cost',kind:'cost',amount:-Math.abs(values.indirect),drill:'Indirect Cost'},
-    {label:'EBITDA',kind:'ebitda',display:values.ebitda,drill:'EBITDA'},
-    {label:'Gap to $500K',kind:'gap',display:ebitdaGap,drill:null}
-  ];
-  let running=values.gross||0;
-  const ranges=steps.map(s=>{
-    if(s.kind==='cost'){
-      const start=running;
-      running+=s.amount||0;
-      return [Math.min(start,running),Math.max(start,running)];
-    }
-    if(s.kind==='checkpoint'||s.kind==='ebitda'){
-      if(s.kind==='checkpoint') running=s.display||0;
-      return [0,s.display||0];
-    }
-    return [0,s.display||0];
-  });
-  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='cost') return costGradient(context.chart,false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='cost') return costBorder(false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='cost') return costGradient(context.chart,true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='cost') return costBorder(true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{const step=elements.length?steps[elements[0].index]:null; event.native.target.style.cursor=step?.drill?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const step=steps[elements[0].index]; if(step?.drill) openForecastWaterfallDrilldown(step.drill);},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
-}
-
-function forecastPeriodSets(){
-  const months=forecastOutlookMonths();
-  const actualMonths=months.filter(isForecastActualMonth);
-  const forecastMonths=months.filter(m=>!isForecastActualMonth(m));
-  return {months,actualMonths,forecastMonths};
-}
-function forecastFY2025Months(){
-  return (DASH?.pl?.months||[]).filter(m=>m&&m.endsWith('-25')).sort((a,b)=>periodSerial(a)-periodSerial(b));
-}
-function forecastSameMonthFY2025(period){
-  const parsed=monthYear(period);
-  return `${parsed.mon}-25`;
-}
-function forecastSetModal(layout='normal'){
-  const modal=ensureModal();
-  const card=modal.querySelector('.modal-card');
-  if(card){
-    card.classList.remove('forecast-wide','forecast-table-first');
-    if(layout==='wide'||layout==='table') card.classList.add('forecast-wide');
-    if(layout==='table') card.classList.add('forecast-table-first');
-  }
-  return modal;
-}
-function forecastOpenModal(title,sub,layout='normal'){
-  const modal=forecastSetModal(layout);
-  modal.classList.add('open');
-  el('drillTitle').textContent=title;
-  el('drillSub').textContent=sub;
-  return modal;
-}
-function forecastDetailValue(source,key,periods,abs=false){
-  const value=plSeriesRangeValue(source,key,periods);
-  if(value==null) return null;
-  return abs?Math.abs(value):value;
-}
-function forecastPeriodValue(source,key,period,abs=false){
-  const value=plValue(source,key,period,'monthly');
-  if(value==null) return null;
-  return abs?Math.abs(value):value;
-}
-function forecastCostLikeKey(key){
-  return /^(Less:|Total: COGS|Total Academic Support Cost|Total: S&M Cost|Below the Line|Above the Line)/.test(key||'');
-}
-function forecastVarianceRowHtml(row,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
-  const delta=row.current!=null&&row.prior!=null?row.current-row.prior:null;
-  const pct=pctChange(row.current,row.prior);
-  return `<tr class="${row.total?'total-row':''}"><td>${h(row.label)}</td><td>${fUSD(row.current,false)}</td><td>${fUSD(row.prior,false)}</td>${varianceCell(delta,false,!!row.lowerBetter)}${varianceCell(pct,true,!!row.lowerBetter)}</tr>`;
-}
-function forecastComparisonTableHtml(rows,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
-  const body=rows.map(row=>forecastVarianceRowHtml(row,currentLabel,priorLabel)).join('');
-  return `<div class="modal-table"><table><thead><tr><th>Line Item</th><th>${h(currentLabel)}</th><th>${h(priorLabel)}</th><th>Variance</th><th>Variance %</th></tr></thead><tbody>${body||`<tr><td colspan="5">No comparison data available</td></tr>`}</tbody></table></div>`;
-}
-function forecastDrillConfig(stepLabel){
-  const direct=['Less: Sales VAT','Less: Refunds','Less: Gateway Discounts','Less: Payment Gateway Charge'];
-  const configs={
-    'Direct Sales Costs':{title:'Direct Sales Costs',keys:direct,abs:true,lowerBetter:true},
-    'Net Revenue':{title:'Net Revenue Bridge',keys:['Gross Revenue',...direct],abs:false},
-    'COGS':{title:'COGS',keys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production'],abs:true,lowerBetter:true},
-    'Academic Support':{title:'Academic Support',keys:['Less: Program Management','Less: Live Class Operations'],abs:true,lowerBetter:true},
-    'S&M Cost':{title:'S&M Cost',keys:['Less: Sales Team Cost','Less: Acquisition Marketing Cost','Less: Laptop Rental'],abs:true,lowerBetter:true},
-    'Brand Marketing':{title:'Brand Marketing',keys:['Below the Line','Above the Line'],abs:true,lowerBetter:true},
-    'Indirect Cost':{title:'Indirect Cost',keys:['Less: G&A','Less: Infrastructure Salaries','Less: Engineering & Product Salaries','Less: Bonus','Less: Technology OpEx','Less: Vendors VDS & TDS','Less: Salary Tax'],abs:true,lowerBetter:true},
-    'Gross Margin':{title:'Gross Margin',keys:['Gross Revenue','Total: COGS','Gross Margin'],abs:false},
-    'CM 1':{title:'CM1 Bridge',keys:['Gross Margin','Total Academic Support Cost','Profit Contribution 1'],abs:false},
-    'CM 2':{title:'CM2 Bridge',keys:['Profit Contribution 1','Total: S&M Cost','Profit Contribution 2'],abs:false},
-    'CM 3':{title:'CM3 Bridge',keys:['Profit Contribution 2','Less: Brand Marketing Cost','Profit Contribution 3'],abs:false},
-    'EBITDA':{title:'EBITDA Bridge',keys:['Profit Contribution 3','Total: Indirect Cost','Add: Non Operating Income','Add: Interest Income','EBITDA'],abs:false}
-  };
-  return configs[stepLabel]||null;
-}
-function openForecastRevenueMonthDrilldown(period,tab='channel'){
-  forecastOpenModal(`${period} Gross Revenue Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Revenue plan breakdown`,'table');
-  renderForecastRevenueMonthDrilldown(period,tab);
-}
-function renderForecastRevenueMonthDrilldown(period,tab='channel'){
-  const channelKeys=['Telesales','Installment Recovery','Inbound','Retention'];
-  const courseKeys=['Class 6 to 8','Class 9 to 12','Board Exam Prep','Uni Admission','Skills','Other'];
-  const revenueKeys=tab==='course'?courseKeys:channelKeys;
-  const source=isForecastActualMonth(period)?'actual':'forecast';
-  const priorPeriod=forecastSameMonthFY2025(period);
-  const currentLabel=`${period} ${isForecastActualMonth(period)?'Actual':'Forecast'}`;
-  const priorLabel=`${priorPeriod} Actual`;
-  const rows=revenueKeys.map(key=>({
-    label:cleanLineLabel(key),
-    current:forecastPeriodValue(source,key,period,false),
-    prior:forecastPeriodValue('actual',key,priorPeriod,false),
-    lowerBetter:false
-  })).filter(r=>r.current!=null||r.prior!=null);
-  const totalCurrent=forecastPeriodValue(source,'Gross Revenue',period,false);
-  const totalPrior=forecastPeriodValue('actual','Gross Revenue',priorPeriod,false);
-  if(totalCurrent!=null||totalPrior!=null) rows.push({label:'Total Gross Revenue',current:totalCurrent,prior:totalPrior,lowerBetter:false,total:true});
-  const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course')">By Course</button></div>`;
-  el('drillBody').innerHTML=`${tabs}${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}`;
-}
-function openForecastEbitdaMonthDrilldown(period){
-  forecastOpenModal(`${period} EBITDA Path Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Key P&L checkpoints`,'table');
-  const source=isForecastActualMonth(period)?'actual':'forecast';
-  const priorPeriod=forecastSameMonthFY2025(period);
-  const currentLabel=`${period} ${isForecastActualMonth(period)?'Actual':'Forecast'}`;
-  const priorLabel=`${priorPeriod} Actual`;
-  const flowRows=[
-    ['Gross Revenue','Gross Revenue',false],
-    ['Gross Margin','Gross Margin',false],
-    ['CM1','Profit Contribution 1',false],
-    ['CM2','Profit Contribution 2',false],
-    ['CM3','Profit Contribution 3',false],
-    ['EBITDA','EBITDA',false],
-    ['COGS','Total: COGS',true],
-    ['Academic Support','Total Academic Support Cost',true],
-    ['S&M Cost','Total: S&M Cost',true],
-    ['Brand Marketing','Less: Brand Marketing Cost',true],
-    ['Indirect Cost','Total: Indirect Cost',true]
-  ].map(([label,key,abs])=>({
-    label,
-    current:forecastPeriodValue(source,key,period,abs),
-    prior:forecastPeriodValue('actual',key,priorPeriod,abs),
-    lowerBetter:abs||forecastCostLikeKey(key)
-  })).filter(r=>r.current!=null||r.prior!=null);
-  el('drillBody').innerHTML=forecastComparisonTableHtml(flowRows,currentLabel,priorLabel);
-}
-function openForecastWaterfallDrilldown(stepLabel){
-  if(stepLabel==='Gross Revenue'){
-    openForecastGrossRevenueDrilldown('channel');
-    return;
-  }
-  const cfg=forecastDrillConfig(stepLabel);
-  if(!cfg) return;
-  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'table');
-  renderForecastWaterfallDrilldown(cfg);
-}
-function openForecastGrossRevenueDrilldown(tab='channel'){
-  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'table');
-  renderForecastGrossRevenueDrilldown(tab);
-}
-function renderForecastGrossRevenueDrilldown(tab='channel'){
-  const keys=tab==='course'?['Class 6 to 8','Class 9 to 12','Board Exam Prep','Uni Admission','Skills','Other']:['Telesales','Installment Recovery','Inbound','Retention'];
-  const cfg={title:'Gross Revenue',keys,abs:false};
-  const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastGrossRevenueDrilldown('channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastGrossRevenueDrilldown('course')">By Course</button></div>`;
-  renderForecastWaterfallDrilldown(cfg,tabs);
-}
-function renderForecastWaterfallDrilldown(cfg,tabsHtml=''){
-  const {months}=forecastPeriodSets();
-  const priorMonths=forecastFY2025Months();
-  const rows=cfg.keys.map(key=>({
-    label:cleanLineLabel(key),
-    current:forecastDetailValue('blended',key,months,!!cfg.abs),
-    prior:forecastDetailValue('actual',key,priorMonths,!!cfg.abs),
-    lowerBetter:!!cfg.lowerBetter||forecastCostLikeKey(key)
-  })).filter(row=>row.current!=null||row.prior!=null);
-  el('drillBody').innerHTML=`${tabsHtml}${forecastComparisonTableHtml(rows,'Blended FY2026','FY2025 Actual')}`;
+  const metric=state.forecastMetric||'EBITDA';
+  const metricLabel={'Gross Revenue':'Gross Revenue','Net Revenue':'Net Revenue','Gross Margin':'Gross Margin','Profit Contribution 2':'CM2','EBITDA':'EBITDA'}[metric]||metric;
+  const isEbitda=metric==='EBITDA';
+  const metricVals=months.map(m=>plValue('blended',metric,m,'monthly'));
+  const ebitdaVals=months.map(m=>plValue('blended','EBITDA',m,'monthly'));
+  const mColors=months.map(m=>isForecastActualMonth(m)?C.navy:'rgba(185,120,24,.42)');
+  const mBorders=months.map(m=>isForecastActualMonth(m)?C.navy:C.amber);
+  const trendDs=[{...dsBar(metricLabel,metricVals,C.navy),backgroundColor:mColors,borderColor:mBorders,maxBarThickness:52}];
+  if(!isEbitda) trendDs.push({...dsLine('EBITDA',ebitdaVals,C.magenta),type:'line',yAxisID:'y',borderWidth:2.8,pointRadius:3,tension:0});
+  chart('forecastTrend',{type:'bar',data:{labels:months,datasets:trendDs},options:withBarDataLabels({...baseOptions('usd',false),onHover:(ev,el_)=>{ev.native.target.style.cursor=el_.length?'pointer':'default';},onClick:(ev,el_)=>{if(!el_.length)return; const m=months[el_[0].index]; if(m) openForecastMonthDrilldown(m);}},{format:'usdCompact',color:C.axis}),plugins:[barDataLabelPlugin]});
+  const bv=forecastOutlookBridgeValues(months);
+  const steps=[{label:'Gross Revenue',kind:'checkpoint',display:bv.gross},{label:'Direct Sales Costs',kind:'cost',amount:-Math.abs(bv.direct)},{label:'Net Revenue',kind:'checkpoint',display:bv.net},{label:'COGS',kind:'cost',amount:-Math.abs(bv.cogs)},{label:'Gross Margin',kind:'checkpoint',display:bv.grossMargin},{label:'Academic Support',kind:'cost',amount:-Math.abs(bv.academic)},{label:'CM 1',kind:'checkpoint',display:bv.cm1},{label:'S&M Cost',kind:'cost',amount:-Math.abs(bv.sm)},{label:'CM 2',kind:'checkpoint',display:bv.cm2},{label:'Brand Marketing',kind:'cost',amount:-Math.abs(bv.brand)},{label:'CM 3',kind:'checkpoint',display:bv.cm3},{label:'Indirect Cost',kind:'cost',amount:-Math.abs(bv.indirect)},{label:'EBITDA',kind:'ebitda',display:bv.ebitda}];
+  let running=bv.gross||0;
+  const ranges=steps.map(s=>{if(s.kind==='checkpoint'||s.kind==='ebitda'){if(s.kind==='checkpoint') running=s.display||0; return [0,s.display||0];} const start=running; running+=s.amount||0; return [Math.min(start,running),Math.max(start,running)];});
+  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(ctx)=>{const s=steps[ctx.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costGradient(ctx.chart,false):((s.display||0)>=0?C.green:C.red));},borderColor:(ctx)=>{const s=steps[ctx.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costBorder(false):((s.display||0)>=0?C.green:C.red));},hoverBackgroundColor:(ctx)=>{const s=steps[ctx.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costGradient(ctx.chart,true):((s.display||0)>=0?C.green:C.red));},hoverBorderColor:(ctx)=>{const s=steps[ctx.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costBorder(true):((s.display||0)>=0?C.green:C.red));},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},onHover:(ev,el_)=>{const t=ev.native.target; if(!el_.length){t.style.cursor='default';return;} const s=steps[el_[0].index]; t.style.cursor=s.kind==='cost'?'pointer':'default';},onClick:(ev,el_)=>{if(!el_.length)return; const s=steps[el_[0].index]; if(s.kind==='cost') openForecastBridgeDrilldown(s.label);},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
 }
 
 function revenueAovCard(){
@@ -4500,10 +4362,7 @@ function openExecDrilldown(metric,isPrior){
 }
 function closeExecDrilldown(){
   const modal=el('execDrillModal');
-  if(modal){
-    modal.classList.remove('open');
-    modal.querySelector('.modal-card')?.classList.remove('forecast-wide','forecast-table-first');
-  }
+  if(modal) modal.classList.remove('open');
   destroy('execDrillChart');
 }
 function renderGrossRevenueDrilldown(ctx,tab='channel'){
