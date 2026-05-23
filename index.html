@@ -525,6 +525,9 @@ canvas{font-family:'Poppins','Hind Siliguri','Inter',Arial,sans-serif}
 .table-wrap table th:last-child{
   text-align:center;
 }
+.forecast-variance-table th:last-child{
+  text-align:right;
+}
 .cash-notes-cell,.cash-flow-cell,th.cash-flow-header{
   text-align:left!important;
   white-space:normal;
@@ -2643,15 +2646,15 @@ function forecastTableMonths(){
 }
 function forecastTablePeriodLabel(months){
   if(state.view==='ytd'){
-    const first=monthYear(months[0]||'Jan-26').mon;
-    const last=monthYear(months[months.length-1]||state.period).mon;
-    return `${first}-${last} YTD`;
+    return `YTD ${monthLabelLong(months[months.length-1]||state.period)}`;
   }
-  return `${months[0]||state.period} Monthly`;
+  return monthLabelLong(months[0]||state.period);
 }
 function forecastVarianceTable(allMonths){
   const selectedMonths=forecastTableMonths();
   const periodLabel=forecastTablePeriodLabel(selectedMonths);
+  const actualHeader=state.view==='ytd'?`Actual (${periodLabel})`:`Actual (${periodLabel})`;
+  const forecastHeader=state.view==='ytd'?`Forecast (${periodLabel})`:`Forecast (${periodLabel})`;
   const rows=PL_ROWS.filter(row=>row.flow||row.expandable||['Add: Non Operating Income','Add: Interest Income'].includes(row.key||''));
   const html=rows.map(row=>{
     const actual=forecastRangeValue('actual',row,selectedMonths);
@@ -2672,7 +2675,7 @@ function forecastVarianceTable(allMonths){
     }).join(''):'';
     return main+children;
   }).join('');
-  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge (${h(periodLabel)})</div><div class="pl-table-note">Selected-period actuals are compared with forecast; 2026 Projection remains full-year blended.</div></div><div class="pl-controls"><button class="pl-toggle-btn" onclick="toggleAllForecast(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllForecast(false)">Collapse All</button></div></div><table class="pl-table"><thead><tr><th>Line Item</th><th>Actual</th><th>Forecast</th><th>Variance</th><th>2026 Projection</th></tr></thead><tbody>${html}</tbody></table></div>`;
+  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge (${h(periodLabel)})</div><div class="pl-table-note">Selected-period actuals are compared with forecast; 2026 Projection remains full-year blended.</div></div><div class="pl-controls"><button class="pl-toggle-btn" onclick="toggleAllForecast(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllForecast(false)">Collapse All</button></div></div><table class="pl-table forecast-variance-table"><thead><tr><th>Line Item</th><th>${h(actualHeader)}</th><th>${h(forecastHeader)}</th><th>Variance</th><th>2026 Projection</th></tr></thead><tbody>${html}</tbody></table></div>`;
 }
 function toggleForecastRow(id){
   state.forecastExpanded=state.forecastExpanded||{};
@@ -2894,28 +2897,36 @@ function forecastDrillConfig(stepLabel){
   };
   return configs[stepLabel]||null;
 }
-function openForecastRevenueMonthDrilldown(period,tab='channel'){
-  forecastOpenModal(`${period} Gross Revenue Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Revenue plan breakdown`,'wide');
-  renderForecastRevenueMonthDrilldown(period,tab);
+function openForecastRevenueMonthDrilldown(period,tab='channel',compareMode=null){
+  const mode=compareMode||((isForecastActualMonth(period)?'forecast':'prior_year'));
+  const compareLabel=mode==='forecast'?`${period} forecast`:`${forecastSameMonthFY2025(period)} actual`;
+  forecastOpenModal(`${period} Gross Revenue Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${compareLabel} | Revenue plan breakdown`,'wide');
+  renderForecastRevenueMonthDrilldown(period,tab,mode);
 }
-function renderForecastRevenueMonthDrilldown(period,tab='channel'){
+function renderForecastRevenueMonthDrilldown(period,tab='channel',compareMode=null){
+  const mode=compareMode||((isForecastActualMonth(period)?'forecast':'prior_year'));
+  const compareLabel=mode==='forecast'?`${period} forecast`:`${forecastSameMonthFY2025(period)} actual`;
+  const sub=el('drillSub');
+  if(sub) sub.textContent=`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${compareLabel} | Revenue plan breakdown`;
   const channelKeys=['Telesales','Installment Recovery','Inbound','Retention'];
   const courseKeys=['Class 6 to 8','Class 9 to 12','Board Exam Prep','Uni Admission','Skills','Other'];
   const revenueKeys=tab==='course'?courseKeys:channelKeys;
   const source=isForecastActualMonth(period)?'actual':'forecast';
   const priorPeriod=forecastSameMonthFY2025(period);
   const currentLabel=`${period} ${isForecastActualMonth(period)?'Actual':'Forecast'}`;
-  const priorLabel=`${priorPeriod} Actual`;
+  const priorLabel=mode==='forecast'?`${period} Forecast`:`${priorPeriod} Actual`;
+  const compareSource=mode==='forecast'?'forecast':'actual';
+  const comparePeriod=mode==='forecast'?period:priorPeriod;
   const rows=revenueKeys.map(key=>({
     label:cleanLineLabel(key),
     current:forecastPeriodValue(source,key,period,false),
-    prior:forecastPeriodValue('actual',key,priorPeriod,false),
+    prior:forecastPeriodValue(compareSource,key,comparePeriod,false),
     lowerBetter:false
   })).filter(r=>r.current!=null||r.prior!=null);
   const totalCurrent=forecastPeriodValue(source,'Gross Revenue',period,false);
-  const totalPrior=forecastPeriodValue('actual','Gross Revenue',priorPeriod,false);
+  const totalPrior=forecastPeriodValue(compareSource,'Gross Revenue',comparePeriod,false);
   if(totalCurrent!=null||totalPrior!=null) rows.push({label:'Total Gross Revenue',current:totalCurrent,prior:totalPrior,lowerBetter:false,total:true});
-  const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course')">By Course</button></div>`;
+  const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel','${mode}')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course','${mode}')">By Course</button><button class="modal-tab ${mode==='forecast'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','${tab}','forecast')">vs Forecast</button><button class="modal-tab ${mode==='prior_year'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','${tab}','prior_year')">vs Same Month PY</button></div>`;
   const chartRows=rows.filter(r=>!r.total);
   el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}</div>`;
   chart('execDrillChart',{type:'bar',data:{labels:chartRows.map(r=>r.label),datasets:[dsBar(currentLabel,chartRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,chartRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
