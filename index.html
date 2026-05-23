@@ -1437,9 +1437,9 @@ function labelIcon(label){return `${icon(metricIcon(label),'kpi-icon')}<span>${l
 const PAGES=[
   ['exec','Executive Summary','Command-center view of financial health and action signals','dashboard'],
   ['pl','Actual vs Forecast Performance','Revenue, margin and EBITDA control against forecast','activity'],
+  ['forecast','FY2026 Outlook','FY2026 actuals plus remaining forecast','trend'],
   ['revenue','Revenue Analysis','Channel, course and repeat revenue drivers over time','coins'],
   ['costs','Cost & Margins','COGS, payroll and operating leverage','receipt'],
-  ['forecast','Forecast Outlook','FY2026 actuals plus remaining forecast','trend'],
   ['usd','USD Payment Structure','Dollar purchase cost build-up and VAT impact','scale'],
   ['sales','Sales Team Efficiency','Sales productivity, ROI, headcount and package mix','users'],
   ['growth','Marketing & Growth Efficiency','Platform spend, actual spend and paid user activity','target'],
@@ -2615,8 +2615,8 @@ function renderForecast(){
   state.forecastExpanded=state.forecastExpanded||{};
   const months=forecastOutlookMonths();
   if(!months.length){
-    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">Forecast Outlook</div><div class="chart-sub">FY2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No FY2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
-    el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 actuals plus remaining forecast',5,body);
+    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">FY2026 Outlook</div><div class="chart-sub">FY2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No FY2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
+    el('main').innerHTML=pageScaffold('forecast','FY2026 Outlook','FY2026 actuals plus remaining forecast',3,body);
     setNote('forecast');
     return;
   }
@@ -2637,7 +2637,7 @@ function renderForecast(){
   ].join('');
   const varianceTable=forecastVarianceTable(all);
   const body=`<div class="kpi-grid forecast-kpi-grid">${kpis}</div><div class="chart-grid">${chartCard('Monthly Gross Revenue Plan','FY2026 gross revenue path; Jan-Apr shows actual vs forecast variance, amber is remaining forecast.','forecastRevenueTrend',false,true,drillNote())}${chartCard('Monthly EBITDA Path','FY2026 EBITDA path with the May-Dec monthly average required to hit the $500K target.','forecastEbitdaTrend',false,true)}</div><div class="chart-grid full">${chartCard('FY Revenue to EBITDA Bridge','Full-year revenue, cost, margin and EBITDA flow. Gross Revenue and cost steps drill down.','forecastBridge',false,true,drillNote())}</div>${varianceTable}`;
-  el('main').innerHTML=pageScaffold('forecast','Forecast Outlook','FY2026 gross revenue plan and EBITDA target delivery',5,body);
+  el('main').innerHTML=pageScaffold('forecast','FY2026 Outlook','FY2026 gross revenue plan and EBITDA target delivery',3,body);
   setNote('forecast');
   renderForecastCharts(months);
 }
@@ -3484,14 +3484,17 @@ function costContextHasData(layer,basis,ctx){
 function costTrendValues(layer,basis,periods){
   return periods.map(period=>costAmountFor(layer,basis,{source:'actual',period,view:state.view}));
 }
-function selectedCostTrendColors(periods){
-  const muted='rgba(53,72,148,.24)';
-  const mutedBorder='rgba(53,72,148,.34)';
-  const mutedHover='rgba(53,72,148,.40)';
+function selectedCostTrendColors(periods,basis='cash'){
+  const isAccrual=basis==='accrual';
+  const selected=isAccrual?C.magenta:C.navy;
+  const selectedHover=isAccrual?'#D83A98':C.navy2;
+  const muted=isAccrual?'rgba(207,39,141,.22)':'rgba(53,72,148,.24)';
+  const mutedBorder=isAccrual?'rgba(207,39,141,.34)':'rgba(53,72,148,.34)';
+  const mutedHover=isAccrual?'rgba(207,39,141,.42)':'rgba(53,72,148,.40)';
   return {
-    background:periods.map(period=>period===state.period?C.navy:muted),
-    border:periods.map(period=>period===state.period?C.navy:mutedBorder),
-    hover:periods.map(period=>period===state.period?C.navy2:mutedHover)
+    background:periods.map(period=>period===state.period?selected:muted),
+    border:periods.map(period=>period===state.period?selected:mutedBorder),
+    hover:periods.map(period=>period===state.period?selectedHover:mutedHover)
   };
 }
 function renderCostTrendChart(layer,basis){
@@ -3502,7 +3505,7 @@ function renderCostTrendChart(layer,basis){
     setChartNoData(chartId,`${layer.title} ${costBasisLabel(basis).toLowerCase()} data is unavailable for the selected period range.`);
     return;
   }
-  const colors=selectedCostTrendColors(periods);
+  const colors=selectedCostTrendColors(periods,basis);
   const trend=applyTrendRange(chartId,periods,[{
     ...dsBar(`${costViewLabel()} ${layer.title}`,values,C.navy),
     backgroundColor:colors.background,
