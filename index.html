@@ -182,6 +182,9 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .modal-close{border:0;background:#F3F6FB;color:var(--muted);border-radius:12px;width:36px;height:36px;font-size:22px;line-height:1;cursor:pointer}
 .modal-body{padding:18px 22px 22px;overflow:auto}
 .modal-tabs{display:flex;gap:8px;margin-bottom:16px}
+.modal-control-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.modal-control-row .modal-tabs{margin-bottom:0}
+.modal-control-row .small-select{min-width:190px}
 .modal-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;font-family:inherit;font-weight:900;font-size:11px;color:var(--muted);cursor:pointer}
 .modal-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
@@ -525,8 +528,8 @@ canvas{font-family:'Poppins','Hind Siliguri','Inter',Arial,sans-serif}
 .table-wrap table th:last-child{
   text-align:center;
 }
-.forecast-variance-table th:last-child{
-  text-align:right;
+.forecast-variance-table thead th:last-child{
+  text-align:right!important;
 }
 .cash-notes-cell,.cash-flow-cell,th.cash-flow-header{
   text-align:left!important;
@@ -2926,7 +2929,7 @@ function renderForecastRevenueMonthDrilldown(period,tab='channel',compareMode=nu
   const totalCurrent=forecastPeriodValue(source,'Gross Revenue',period,false);
   const totalPrior=forecastPeriodValue(compareSource,'Gross Revenue',comparePeriod,false);
   if(totalCurrent!=null||totalPrior!=null) rows.push({label:'Total Gross Revenue',current:totalCurrent,prior:totalPrior,lowerBetter:false,total:true});
-  const tabs=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel','${mode}')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course','${mode}')">By Course</button><button class="modal-tab ${mode==='forecast'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','${tab}','forecast')">vs Forecast</button><button class="modal-tab ${mode==='prior_year'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','${tab}','prior_year')">vs Same Month PY</button></div>`;
+  const tabs=`<div class="modal-control-row"><div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel','${mode}')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course','${mode}')">By Course</button></div><select class="small-select" aria-label="Gross revenue comparison" onchange="renderForecastRevenueMonthDrilldown('${period}','${tab}',this.value)"><option value="forecast" ${mode==='forecast'?'selected':''}>Compare vs Forecast</option><option value="prior_year" ${mode==='prior_year'?'selected':''}>Compare vs Same Month PY</option></select></div>`;
   const chartRows=rows.filter(r=>!r.total);
   el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}</div>`;
   chart('execDrillChart',{type:'bar',data:{labels:chartRows.map(r=>r.label),datasets:[dsBar(currentLabel,chartRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,chartRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
