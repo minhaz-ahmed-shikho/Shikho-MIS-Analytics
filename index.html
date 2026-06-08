@@ -1587,7 +1587,7 @@ function idx(months,m){return months.indexOf(m)}
 function val(arr,i){return Array.isArray(arr)&&i>=0&&i<arr.length?arr[i]:null}
 function safe(a){return a===undefined||Number.isNaN(a)?null:a}
 function sum(arr){return arr.reduce((a,b)=>a+(b||0),0)}
-function fUSD(v,compact=true){ if(v==null) return '—'; const neg=v<0; v=Math.abs(v); const s=v>=1000?'$'+Math.round(v/1000).toLocaleString()+'K':'$'+Math.round(v).toLocaleString(); return neg?'('+s+')':s; }
+function fUSD(v,compact=true){ if(v==null) return '—'; const neg=v<0; v=Math.abs(v); let s; if(compact&&v>=1000000)s='$'+(v/1000000).toFixed(1)+'M'; else if(compact&&v>=1000)s='$'+Math.round(v/1000).toLocaleString()+'K'; else s='$'+Math.round(v).toLocaleString(); return neg?'('+s+')':s; }
 function fUSDK(v){return fUSD(v,true);}
 function fUSDCompact(v){return (v==null || !Number.isFinite(v))?'':fUSD(v,true);}
 function fInt(v){return v==null?'—':Math.round(v).toLocaleString()}
