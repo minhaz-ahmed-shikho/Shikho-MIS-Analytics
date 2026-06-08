@@ -2882,6 +2882,15 @@ function forecastComparisonTableHtml(rows,currentLabel='Blended FY2026',priorLab
   const body=rows.map(row=>forecastVarianceRowHtml(row,currentLabel,priorLabel)).join('');
   return `<div class="modal-table"><table><thead><tr><th>Line Item</th><th>${h(currentLabel)}</th><th>${h(priorLabel)}</th><th>Variance</th><th>Variance %</th></tr></thead><tbody>${body||`<tr><td colspan="5">No comparison data available</td></tr>`}</tbody></table></div>`;
 }
+function forecastPriorFirstRowHtml(row,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
+  const delta=row.current!=null&&row.prior!=null?row.current-row.prior:null;
+  const pct=pctChange(row.current,row.prior);
+  return `<tr class="${row.total?'total-row':''}"><td>${h(row.label)}</td><td>${fUSD(row.prior,false)}</td><td>${fUSD(row.current,false)}</td>${varianceCell(delta,false,!!row.lowerBetter)}${varianceCell(pct,true,!!row.lowerBetter)}</tr>`;
+}
+function forecastPriorFirstTableHtml(rows,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
+  const body=rows.map(row=>forecastPriorFirstRowHtml(row,currentLabel,priorLabel)).join('');
+  return `<div class="modal-table"><table><thead><tr><th>Line Item</th><th>${h(priorLabel)}</th><th>${h(currentLabel)}</th><th>Variance</th><th>Variance %</th></tr></thead><tbody>${body||`<tr><td colspan="5">No comparison data available</td></tr>`}</tbody></table></div>`;
+}
 function forecastDrillConfig(stepLabel){
   const direct=['Less: Sales VAT','Less: Refunds','Less: Gateway Discounts','Less: Payment Gateway Charge'];
   const configs={
@@ -2968,11 +2977,11 @@ function openForecastWaterfallDrilldown(stepLabel){
   }
   const cfg=forecastDrillConfig(stepLabel);
   if(!cfg) return;
-  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'wide');
+  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`FY2025 actual vs Blended FY2026 | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastWaterfallDrilldown(cfg);
 }
 function openForecastGrossRevenueDrilldown(tab='channel'){
-  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`Blended FY2026 vs FY2025 actual | ${forecastActualCutoff()} cutoff`,'wide');
+  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`FY2025 actual vs Blended FY2026 | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastGrossRevenueDrilldown(tab);
 }
 function renderForecastGrossRevenueDrilldown(tab='channel'){
@@ -2990,8 +2999,8 @@ function renderForecastWaterfallDrilldown(cfg,tabsHtml=''){
     prior:forecastDetailValue('actual',key,priorMonths,!!cfg.abs),
     lowerBetter:!!cfg.lowerBetter||forecastCostLikeKey(key)
   })).filter(row=>row.current!=null||row.prior!=null);
-  el('drillBody').innerHTML=`${tabsHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,'Blended FY2026','FY2025 Actual')}</div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('Blended FY2026',rows.map(r=>r.current||0),C.navy),dsBar('FY2025 Actual',rows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
+  el('drillBody').innerHTML=`${tabsHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastPriorFirstTableHtml(rows,'Blended FY2026','FY2025 Actual')}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('FY2025 Actual',rows.map(r=>r.prior||0),C.magenta),dsBar('Blended FY2026',rows.map(r=>r.current||0),C.navy)]},options:baseOptions('usd',false)});
 }
 
 function revenueAovCard(){
