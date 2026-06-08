@@ -2443,7 +2443,7 @@ const PL_ROWS=[
   {label:'Gross Revenue',key:'Gross Revenue',flow:true},
   {id:'revenueDeductions',label:'Direct Sales Costs',details:['Less: Sales VAT','Less: Refunds','Less: Gateway Discounts','Less: Payment Gateway Charge'],lower:true,expandable:true},
   {label:'Net Revenue',key:'Net Revenue',flow:true},
-  {id:'cogs',label:'COGS',key:'Total: COGS',details:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production'],lower:true,expandable:true},
+  {id:'cogs',label:'COGS',key:'Total: COGS',details:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production','Less: Academic Course Gift'],lower:true,expandable:true},
   {label:'Gross Margin',key:'Gross Margin',flow:true},
   {label:'GM%',key:'GM%',pct:true,numerator:'Gross Margin',flow:true},
   {id:'academic',label:'Academic Support Costs',key:'Total Academic Support Cost',details:['Less: Program Management','Less: Live Class Operations'],lower:true,expandable:true},
@@ -2887,7 +2887,7 @@ function forecastDrillConfig(stepLabel){
   const configs={
     'Direct Sales Costs':{title:'Direct Sales Costs',keys:direct,abs:true,lowerBetter:true},
     'Net Revenue':{title:'Net Revenue Bridge',keys:['Gross Revenue',...direct],abs:false},
-    'COGS':{title:'COGS',keys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production'],abs:true,lowerBetter:true},
+    'COGS':{title:'COGS',keys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production','Less: Academic Course Gift'],abs:true,lowerBetter:true},
     'Academic Support':{title:'Academic Support',keys:['Less: Program Management','Less: Live Class Operations'],abs:true,lowerBetter:true},
     'S&M Cost':{title:'S&M Cost',keys:['Less: Sales Team Cost','Less: Acquisition Marketing Cost','Less: Laptop Rental'],abs:true,lowerBetter:true},
     'Brand Marketing':{title:'Brand Marketing',keys:['Below the Line','Above the Line'],abs:true,lowerBetter:true},
@@ -3314,7 +3314,7 @@ function renderCosts(){
   renderCostCharts();
 }
 function costLayers(){return [
-  {id:'cogs',title:'COGS',plCost:'Total: COGS',plCostLabel:'COGS Total',margin:'GM%',marginLabel:'Gross Margin %',sheet:'cogs',sheetLabel:'COGS_Accrual',total:'Total COGS',cashKeys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production']},
+  {id:'cogs',title:'COGS',plCost:'Total: COGS',plCostLabel:'COGS Total',margin:'GM%',marginLabel:'Gross Margin %',sheet:'cogs',sheetLabel:'COGS_Accrual',total:'Total COGS',cashKeys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production','Less: Academic Course Gift']},
   {id:'academic',title:'Academic Support',plCost:'Total Academic Support Cost',plCostLabel:'Academic Support',margin:'CM 1 %',marginLabel:'CM1 %',sheet:'academic',sheetLabel:'Academic Support_Accrual',total:'Total Academic Support Cost',cashKeys:['Less: Program Management','Less: Live Class Operations']},
   {id:'sm',title:'S&M Cost',plCost:'Total: S&M Cost',plCostLabel:'S&M Cost',margin:'CM 2 %',marginLabel:'CM2 %',sheet:'sm',sheetLabel:'S&M Cost_Accrual',total:'Total Sales Team Cost',cashKeys:['Less: Sales Team Cost','Less: Acquisition Marketing Cost','Less: Laptop Rental']},
   {id:'brand',title:'Brand Marketing Cost',plCost:'Less: Brand Marketing Cost',plCostLabel:'Brand Marketing',margin:'CM 3 %',marginLabel:'CM3 %',sheet:'brand',sheetLabel:'Brand Marketing Cost_Accrual',total:'Total Brand Marketing Cost',cashKeys:['Below the Line','Above the Line']},
@@ -4732,7 +4732,7 @@ function drilldownConfigForStep(stepLabel){
     'COGS':{
       title:'COGS Drilldown',
       totalKey:'Total: COGS',
-      keys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production'],
+      keys:['Less: Teachers Team','Less: Legacy Live Class Teachers','Less: Instructor Fees','Less: Rev Sharing','Less: Streaming Costs','Less: Database & Server Costs','Less: Shikho Shop','Less: Book Production','Less: Academic Course Gift'],
       mode:'cost',
       note:'Shows cost categories included under COGS.'
     },
