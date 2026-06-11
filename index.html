@@ -102,7 +102,6 @@ table{width:100%;border-collapse:collapse;font-size:12px} th{background:var(--na
 .pl-subheader-row td{background:#F7F9FC!important;color:#273B78!important;font-weight:900!important;border-top:1px solid #E1E6EF}
 .pl-subheader-row td:first-child{padding-left:46px!important}
 .pl-nested-row td:first-child{padding-left:68px!important}
-.pl-nested-row td:first-child:before{content:'›';display:inline-block;margin-right:8px;color:var(--faint);font-weight:900}
 .pl-flow-row td,.pl-flow-row td:first-child{font-weight:900!important;color:var(--navy)!important;background:#F8FAFD}
 .pl-flow-row td.pos-var{color:var(--green)!important}
 .pl-flow-row td.neg-var{color:var(--red)!important}
@@ -1437,7 +1436,7 @@ function labelIcon(label){return `${icon(metricIcon(label),'kpi-icon')}<span>${l
 const PAGES=[
   ['exec','Executive Summary','Command-center view of financial health and action signals','dashboard'],
   ['pl','Actual vs Forecast Performance','Revenue, margin and EBITDA control against forecast','activity'],
-  ['forecast','FY2026 Outlook','FY2026 actuals plus remaining forecast','trend'],
+  ['forecast','2026 Outlook','2026 actuals plus remaining forecast','trend'],
   ['revenue','Revenue Analysis','Channel, course and repeat revenue drivers over time','coins'],
   ['costs','Cost & Margins','COGS, payroll and operating leverage','receipt'],
   ['usd','USD Payment Structure','Dollar purchase cost build-up and VAT impact','scale'],
@@ -1849,7 +1848,7 @@ function setNote(page){
     pl: monthly?`Selected month vs ${plComparisonHeader(state.plCompare||'forecast').toLowerCase()}.`:`YTD through selected month vs ${plComparisonHeader(state.plCompare||'forecast').toLowerCase()}.`,
     revenue: monthly?'Selected month compared with prior year and prior month.':'YTD revenue mix through selected month.',
     costs: monthly?'Monthly cash and accrual cost trends with clickable drilldowns.':'YTD cash and accrual cost trends with clickable drilldowns.',
-    forecast:'FY2026 outlook uses actuals through the close and forecast after that.',
+    forecast:'2026 outlook uses actuals through the close and forecast after that.',
     usd:'Selected-month USD payment build-up; Monthly/YTD toggle does not change this page.',
     sales: monthly?'Selected month sales productivity and headcount.':'YTD sales productivity and ROI.',
     growth:'Monthly trend view; Monthly/YTD toggle does not change these charts.',
@@ -2254,8 +2253,8 @@ function renderExecCharts(){
   chart('execCompare',{
     type:'bar',
     data:{labels:['Gross Revenue','EBITDA'],datasets:[
-      dsBar(currentLabel,[cur.grossRevenue,cur.ebitda],C.navy),
-      dsBar(priorLabel,[cur.grossRevenuePrior,cur.ebitdaPrior],C.magenta)
+      dsBar(priorLabel,[cur.grossRevenuePrior,cur.ebitdaPrior],C.magenta),
+      dsBar(currentLabel,[cur.grossRevenue,cur.ebitda],C.navy)
     ]},
     options:withBarDataLabels({
       ...baseOptions('usd',false),
@@ -2269,7 +2268,7 @@ function renderExecCharts(){
         if(!active.length) return;
         const point=active[0];
         const metric=point.index===0?'Gross Revenue':'EBITDA';
-        const isPrior=point.datasetIndex===1;
+        const isPrior=point.datasetIndex===0;
         openExecDrilldown(metric,isPrior);
       }
     }),
@@ -2293,6 +2292,7 @@ function renderExecCharts(){
     {label:'Brand Marketing', kind:'cost', amount:-Math.abs(getAmt('Less: Brand Marketing Cost')), drill:'Brand Marketing'},
     {label:'CM 3', kind:'checkpoint', display:getAmt('Profit Contribution 3')},
     {label:'Indirect Cost', kind:'cost', amount:-Math.abs(getAmt('Total: Indirect Cost')), drill:'Indirect Cost'},
+    {label:'Non-Operating', kind:'income', amount:getAmt('Add: Non Operating Income')+getAmt('Add: Interest Income'), drill:'Non-Operating'},
     {label:'EBITDA', kind:'ebitda', display:getAmt('EBITDA'), drill:'EBITDA'}
   ];
   let running=gross||0;
@@ -2314,10 +2314,10 @@ function renderExecCharts(){
       _display:steps.map(s=>s.display),
       _labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),
       _types:steps.map(s=>s.kind),
-      backgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costGradient(context.chart,false):((s.display||0)>=0?C.green:C.red));},
-      borderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='cost'?costBorder(false):((s.display||0)>=0?C.green:C.red));},
-      hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costGradient(context.chart,true):((s.display||0)>=0?C.green:C.red));},
-      hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='cost'?costBorder(true):((s.display||0)>=0?C.green:C.red));},
+      backgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='income'?C.green:(s.kind==='cost'?costGradient(context.chart,false):((s.display||0)>=0?C.green:C.red)));},
+      borderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='income'?C.green:(s.kind==='cost'?costBorder(false):((s.display||0)>=0?C.green:C.red)));},
+      hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='income'?C.green:(s.kind==='cost'?costGradient(context.chart,true):((s.display||0)>=0?C.green:C.red)));},
+      hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy2:(s.kind==='income'?C.green:(s.kind==='cost'?costBorder(true):((s.display||0)>=0?C.green:C.red)));},
       borderWidth:1,
       borderRadius:6,
       borderSkipped:false,
@@ -2329,13 +2329,13 @@ function renderExecCharts(){
         const active=chartObj.getElementsAtEventForMode(event,'nearest',{intersect:true},true);
         if(!active.length){event.native.target.style.cursor='default';return;}
         const step=steps[active[0].index];
-        event.native.target.style.cursor=(step.kind==='cost'||step.kind==='ebitda')?'pointer':'default';
+        event.native.target.style.cursor=(step.kind==='cost'||step.kind==='income'||step.kind==='ebitda')?'pointer':'default';
       },
       onClick:(event,elements,chartObj)=>{
         const active=chartObj.getElementsAtEventForMode(event,'nearest',{intersect:true},true);
         if(!active.length) return;
         const step=steps[active[0].index];
-        if(step.kind==='cost' || step.kind==='ebitda') openWaterfallDrilldown(step.drill||step.label);
+        if(step.kind==='cost' || step.kind==='income' || step.kind==='ebitda') openWaterfallDrilldown(step.drill||step.label);
       },
       plugins:{
         legend:{display:false},
@@ -2584,8 +2584,11 @@ function forecastRangeValue(source,row,periods){
   }
   return plSeriesRangeValue(source,row.key,periods);
 }
-function forecastKpiCard(label,value,fmt,sub=''){
-  return `<div class="kpi-card"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status flat">FY26</div></div><div class="kpi-value">${fmt(value)}</div><div class="kpi-meta">${h(sub)}</div></div>`;
+function forecastKpiCard(label,value,fmt,sub='',opts={}){
+  const hasPrior=opts.prior!=null&&value!=null;
+  const klass=hasPrior?indicatorClass(label,value,opts.prior,!!opts.lower):'';
+  const deltaBadge=hasPrior?badge(value-opts.prior,pctChange(value,opts.prior),klass||'watch',opts.compareLabel||'vs 2025'):'';
+  return `<div class="kpi-card ${klass}"><div class="kpi-top"><div class="kpi-label">${labelIcon(label)}</div><div class="kpi-status flat">2026</div></div><div class="kpi-value">${fmt(value)}</div><div class="kpi-meta">${deltaBadge}${h(sub)}</div></div>`;
 }
 function forecastRequiredEbitdaAverage(actualMonths,forecastMonths){
   const actualYtd=plSeriesRangeValue('actual','EBITDA',actualMonths)||0;
@@ -2608,87 +2611,40 @@ function forecastOutlookBridgeValues(periods){
     brand:Math.abs(get('Less: Brand Marketing Cost')),
     cm3:get('Profit Contribution 3'),
     indirect:Math.abs(get('Total: Indirect Cost')),
+    nonop:get('Add: Non Operating Income')+get('Add: Interest Income'),
     ebitda:get('EBITDA')
   };
 }
 function renderForecast(){
-  state.forecastExpanded=state.forecastExpanded||{};
   const months=forecastOutlookMonths();
   if(!months.length){
-    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">FY2026 Outlook</div><div class="chart-sub">FY2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No FY2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
-    el('main').innerHTML=pageScaffold('forecast','FY2026 Outlook','FY2026 actuals plus remaining forecast',3,body);
+    const body=`<div class="chart-grid full"><div class="chart-card"><div class="chart-card-header"><div><div class="chart-title">2026 Outlook</div><div class="chart-sub">2026 forecast data is unavailable.</div></div></div><div class="chart-body">${noDataStateHtml('No 2026 PL_Monthly forecast rows are available yet.')}</div></div></div>`;
+    el('main').innerHTML=pageScaffold('forecast','2026 Outlook','2026 actuals plus remaining forecast',3,body);
     setNote('forecast');
     return;
   }
   const actualMonths=months.filter(isForecastActualMonth);
   const forecastMonths=months.filter(m=>!isForecastActualMonth(m));
   const all=months;
+  const prevYearMonths=ms=>ms.map(prevYearMonth);
   const gross=plSeriesRangeValue('blended','Gross Revenue',all);
   const grossActual=plSeriesRangeValue('actual','Gross Revenue',actualMonths);
   const grossForecast=plSeriesRangeValue('forecast','Gross Revenue',forecastMonths);
+  const grossPrior=plSeriesRangeValue('actual','Gross Revenue',prevYearMonths(all));
+  const grossActualPrior=plSeriesRangeValue('actual','Gross Revenue',prevYearMonths(actualMonths));
+  const grossForecastPrior=plSeriesRangeValue('actual','Gross Revenue',prevYearMonths(forecastMonths));
   const ebitda=plSeriesRangeValue('blended','EBITDA',all);
-  const ebitdaGap=(ebitda||0)-FORECAST_TARGET_EBITDA;
+  const toGoStartMon=forecastMonths.length?monthYear(forecastMonths[0]).mon:'Jun';
   const kpis=[
-    forecastKpiCard('FY Gross Revenue Outlook',gross,fUSD,`${actualMonths.length} actual months + ${forecastMonths.length} forecast months`),
-    forecastKpiCard('Revenue Actual YTD',grossActual,fUSD,`${h(actualMonths[0]||'Jan-26')} to ${h(actualMonths[actualMonths.length-1]||forecastActualCutoff())}`),
-    forecastKpiCard('Revenue Forecast To-Go',grossForecast,fUSD,`${h(forecastMonths[0]||'May-26')} to ${h(forecastMonths[forecastMonths.length-1]||forecastOutlookEnd())}`),
-    forecastKpiCard('FY EBITDA Outlook',ebitda,fUSD,'FY2026 blended outlook'),
-    forecastKpiCard('EBITDA Target Gap',ebitdaGap,fUSD,`vs ${fUSD(FORECAST_TARGET_EBITDA,false)} target`)
+    forecastKpiCard('2026 Gross Revenue Outlook',gross,fUSD,`${actualMonths.length} actual months + ${forecastMonths.length} forecast months`,{prior:grossPrior,compareLabel:'vs 2025 total'}),
+    forecastKpiCard('Revenue Actual YTD',grossActual,fUSD,`${h(actualMonths[0]||'Jan-26')} to ${h(actualMonths[actualMonths.length-1]||forecastActualCutoff())}`,{prior:grossActualPrior,compareLabel:'vs 2025 YTD'}),
+    forecastKpiCard('Revenue Forecast To-Go',grossForecast,fUSD,`${h(forecastMonths[0]||'Jun-26')} to ${h(forecastMonths[forecastMonths.length-1]||forecastOutlookEnd())}`,{prior:grossForecastPrior,compareLabel:`vs ${toGoStartMon}-Dec 2025`}),
+    forecastKpiCard('2026 EBITDA Outlook',ebitda,fUSD,`vs ${fUSD(FORECAST_TARGET_EBITDA,false)} target`)
   ].join('');
-  const varianceTable=forecastVarianceTable(all);
-  const body=`<div class="kpi-grid forecast-kpi-grid">${kpis}</div><div class="chart-grid">${chartCard('Monthly Gross Revenue Plan','FY2026 gross revenue path; Jan-Apr shows actual vs forecast variance, amber is remaining forecast.','forecastRevenueTrend',false,true,drillNote())}${chartCard('Monthly EBITDA Path','FY2026 EBITDA path with the May-Dec monthly average required to hit the $500K target.','forecastEbitdaTrend',false,true)}</div><div class="chart-grid full">${chartCard('FY Revenue to EBITDA Bridge','Full-year revenue, cost, margin and EBITDA flow. Gross Revenue and cost steps drill down.','forecastBridge',false,true,drillNote())}</div>${varianceTable}`;
-  el('main').innerHTML=pageScaffold('forecast','FY2026 Outlook','FY2026 gross revenue plan and EBITDA target delivery',3,body);
+  const body=`<div class="kpi-grid forecast-kpi-grid">${kpis}</div><div class="chart-grid">${chartCard('Monthly Gross Revenue Plan','2026 gross revenue path; Jan-Apr shows actual vs forecast variance, amber is remaining forecast.','forecastRevenueTrend',false,true,drillNote())}${chartCard('Monthly EBITDA Path','2026 EBITDA path with the May-Dec monthly average required to hit the $500K target.','forecastEbitdaTrend',false,true)}</div><div class="chart-grid full">${chartCard('2026 Revenue to EBITDA Bridge','Full-year revenue, cost, margin and EBITDA flow. Gross Revenue, cost steps and EBITDA drill down.','forecastBridge',false,true,drillNote())}</div>`;
+  el('main').innerHTML=pageScaffold('forecast','2026 Outlook','2026 gross revenue plan and EBITDA target delivery',3,body);
   setNote('forecast');
   renderForecastCharts(months);
-}
-function forecastTableMonths(){
-  const months=forecastOutlookMonths();
-  const selected=months.includes(state.period)?state.period:forecastActualCutoff();
-  if(state.view==='ytd') return months.filter(m=>periodSerial(m)<=periodSerial(selected));
-  return selected?[selected]:[];
-}
-function forecastTablePeriodLabel(months){
-  if(state.view==='ytd'){
-    return `YTD ${monthLabelLong(months[months.length-1]||state.period)}`;
-  }
-  return monthLabelLong(months[0]||state.period);
-}
-function forecastVarianceTable(allMonths){
-  const selectedMonths=forecastTableMonths();
-  const periodLabel=forecastTablePeriodLabel(selectedMonths);
-  const actualHeader=state.view==='ytd'?`Actual (${periodLabel})`:`Actual (${periodLabel})`;
-  const forecastHeader=state.view==='ytd'?`Forecast (${periodLabel})`:`Forecast (${periodLabel})`;
-  const rows=PL_ROWS.filter(row=>row.flow||row.expandable||['Add: Non Operating Income','Add: Interest Income'].includes(row.key||''));
-  const html=rows.map(row=>{
-    const actual=forecastRangeValue('actual',row,selectedMonths);
-    const forecast=forecastRangeValue('forecast',row,selectedMonths);
-    const outlook=forecastRangeValue('blended',row,allMonths);
-    const variance=(actual!=null&&forecast!=null)?actual-forecast:null;
-    const open=row.expandable&&state.forecastExpanded[row.id];
-    const icon=row.expandable?`<span class="pl-expander">${open?'-':'+'}</span>`:'<span class="pl-placeholder"></span>';
-    const click=row.expandable?` onclick="toggleForecastRow('${row.id}')"`:'';
-    const main=`<tr class="${row.flow?'pl-flow-row ':''}${row.expandable?'pl-row-main expandable pl-section-row':'pl-row-main'}"${click}><td>${icon}${h(row.label)}</td><td>${plFormat(actual,row)}</td><td>${plFormat(forecast,row)}</td>${varianceCell(variance,!!row.pct,!!row.lower)}<td>${plFormat(outlook,row)}</td></tr>`;
-    const children=open?(row.details||[]).map(k=>{
-      const drow={label:cleanLineLabel(k),key:k,lower:row.lower};
-      const da=forecastRangeValue('actual',drow,selectedMonths);
-      const df=forecastRangeValue('forecast',drow,selectedMonths);
-      const dout=forecastRangeValue('blended',drow,allMonths);
-      const dv=(da!=null&&df!=null)?da-df:null;
-      return `<tr class="${plDetailClass(row.id,k)}"><td>${h(drow.label)}</td><td>${fUSD(da,false)}</td><td>${fUSD(df,false)}</td>${varianceCell(dv,false,!!row.lower)}<td>${fUSD(dout,false)}</td></tr>`;
-    }).join(''):'';
-    return main+children;
-  }).join('');
-  return `<div class="table-wrap"><div class="pl-table-head"><div class="pl-table-title-wrap"><div class="pl-table-title">Forecast Variance Bridge (${h(periodLabel)})</div><div class="pl-table-note">Selected-period actuals are compared with forecast; 2026 Projection remains full-year blended.</div></div><div class="pl-controls"><button class="pl-toggle-btn" onclick="toggleAllForecast(true)">Expand All</button><button class="pl-toggle-btn" onclick="toggleAllForecast(false)">Collapse All</button></div></div><table class="pl-table forecast-variance-table"><thead><tr><th>Line Item</th><th>${h(actualHeader)}</th><th>${h(forecastHeader)}</th><th>Variance</th><th>2026 Projection</th></tr></thead><tbody>${html}</tbody></table></div>`;
-}
-function toggleForecastRow(id){
-  state.forecastExpanded=state.forecastExpanded||{};
-  state.forecastExpanded[id]=!state.forecastExpanded[id];
-  renderForecast();
-}
-function toggleAllForecast(expand){
-  state.forecastExpanded={};
-  PL_ROWS.filter(row=>row.expandable).forEach(row=>{state.forecastExpanded[row.id]=!!expand;});
-  renderForecast();
 }
 function forecastSplitPlugin(labels){
   return {id:'forecastSplitPlugin',afterDraw(chart){
@@ -2812,11 +2768,12 @@ function renderForecastCharts(months){
     {label:'Brand Marketing',kind:'cost',amount:-Math.abs(values.brand),drill:'Brand Marketing'},
     {label:'CM 3',kind:'checkpoint',display:values.cm3,drill:null},
     {label:'Indirect Cost',kind:'cost',amount:-Math.abs(values.indirect),drill:'Indirect Cost'},
-    {label:'EBITDA',kind:'ebitda',display:values.ebitda,drill:null}
+    {label:'Non-Operating',kind:'income',amount:values.nonop,drill:'Non-Operating'},
+    {label:'EBITDA',kind:'ebitda',display:values.ebitda,drill:'EBITDA'}
   ];
   let running=values.gross||0;
   const ranges=steps.map(s=>{
-    if(s.kind==='cost'){
+    if(s.kind==='cost'||s.kind==='income'){
       const start=running;
       running+=s.amount||0;
       return [Math.min(start,running),Math.max(start,running)];
@@ -2827,7 +2784,7 @@ function renderForecastCharts(months){
     }
     return [0,s.display||0];
   });
-  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='cost') return costGradient(context.chart,false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='cost') return costBorder(false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='cost') return costGradient(context.chart,true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='cost') return costBorder(true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{const step=elements.length?steps[elements[0].index]:null; event.native.target.style.cursor=step?.drill?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const step=steps[elements[0].index]; if(step?.drill) openForecastWaterfallDrilldown(step.drill);},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
+  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{const step=elements.length?steps[elements[0].index]:null; event.native.target.style.cursor=step?.drill?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const step=steps[elements[0].index]; if(step?.drill) openForecastWaterfallDrilldown(step.drill);},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
 }
 
 function forecastPeriodSets(){
@@ -2873,21 +2830,12 @@ function forecastPeriodValue(source,key,period,abs=false){
 function forecastCostLikeKey(key){
   return /^(Less:|Total: COGS|Total Academic Support Cost|Total: S&M Cost|Below the Line|Above the Line)/.test(key||'');
 }
-function forecastVarianceRowHtml(row,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
-  const delta=row.current!=null&&row.prior!=null?row.current-row.prior:null;
-  const pct=pctChange(row.current,row.prior);
-  return `<tr class="${row.total?'total-row':''}"><td>${h(row.label)}</td><td>${fUSD(row.current,false)}</td><td>${fUSD(row.prior,false)}</td>${varianceCell(delta,false,!!row.lowerBetter)}${varianceCell(pct,true,!!row.lowerBetter)}</tr>`;
-}
-function forecastComparisonTableHtml(rows,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
-  const body=rows.map(row=>forecastVarianceRowHtml(row,currentLabel,priorLabel)).join('');
-  return `<div class="modal-table"><table><thead><tr><th>Line Item</th><th>${h(currentLabel)}</th><th>${h(priorLabel)}</th><th>Variance</th><th>Variance %</th></tr></thead><tbody>${body||`<tr><td colspan="5">No comparison data available</td></tr>`}</tbody></table></div>`;
-}
-function forecastPriorFirstRowHtml(row,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
+function forecastPriorFirstRowHtml(row,currentLabel='Blended 2026',priorLabel='2025 Actual'){
   const delta=row.current!=null&&row.prior!=null?row.current-row.prior:null;
   const pct=pctChange(row.current,row.prior);
   return `<tr class="${row.total?'total-row':''}"><td>${h(row.label)}</td><td>${fUSD(row.prior,false)}</td><td>${fUSD(row.current,false)}</td>${varianceCell(delta,false,!!row.lowerBetter)}${varianceCell(pct,true,!!row.lowerBetter)}</tr>`;
 }
-function forecastPriorFirstTableHtml(rows,currentLabel='Blended FY2026',priorLabel='FY2025 Actual'){
+function forecastPriorFirstTableHtml(rows,currentLabel='Blended 2026',priorLabel='2025 Actual'){
   const body=rows.map(row=>forecastPriorFirstRowHtml(row,currentLabel,priorLabel)).join('');
   return `<div class="modal-table"><table><thead><tr><th>Line Item</th><th>${h(priorLabel)}</th><th>${h(currentLabel)}</th><th>Variance</th><th>Variance %</th></tr></thead><tbody>${body||`<tr><td colspan="5">No comparison data available</td></tr>`}</tbody></table></div>`;
 }
@@ -2901,6 +2849,7 @@ function forecastDrillConfig(stepLabel){
     'S&M Cost':{title:'S&M Cost',keys:['Less: Sales Team Cost','Less: Acquisition Marketing Cost','Less: Laptop Rental'],abs:true,lowerBetter:true},
     'Brand Marketing':{title:'Brand Marketing',keys:['Below the Line','Above the Line'],abs:true,lowerBetter:true},
     'Indirect Cost':{title:'Indirect Cost',keys:['Less: G&A','Less: Infrastructure Salaries','Less: Engineering & Product Salaries','Less: Bonus','Less: Technology OpEx','Less: Vendors VDS & TDS','Less: Salary Tax'],abs:true,lowerBetter:true},
+    'Non-Operating':{title:'Non-Operating',keys:['Add: Non Operating Income','Add: Interest Income'],abs:false},
     'Gross Margin':{title:'Gross Margin',keys:['Gross Revenue','Total: COGS','Gross Margin'],abs:false},
     'CM 1':{title:'CM1 Bridge',keys:['Gross Margin','Total Academic Support Cost','Profit Contribution 1'],abs:false},
     'CM 2':{title:'CM2 Bridge',keys:['Profit Contribution 1','Total: S&M Cost','Profit Contribution 2'],abs:false},
@@ -2940,8 +2889,8 @@ function renderForecastRevenueMonthDrilldown(period,tab='channel',compareMode=nu
   if(totalCurrent!=null||totalPrior!=null) rows.push({label:'Total Gross Revenue',current:totalCurrent,prior:totalPrior,lowerBetter:false,total:true});
   const tabs=`<div class="modal-control-row"><div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','channel','${mode}')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderForecastRevenueMonthDrilldown('${period}','course','${mode}')">By Course</button></div><select class="small-select" aria-label="Gross revenue comparison" onchange="renderForecastRevenueMonthDrilldown('${period}','${tab}',this.value)"><option value="forecast" ${mode==='forecast'?'selected':''}>Compare vs Forecast</option><option value="prior_year" ${mode==='prior_year'?'selected':''}>Compare vs Same Month PY</option></select></div>`;
   const chartRows=rows.filter(r=>!r.total);
-  el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(rows,currentLabel,priorLabel)}</div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:chartRows.map(r=>r.label),datasets:[dsBar(currentLabel,chartRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,chartRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
+  el('drillBody').innerHTML=`${tabs}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastPriorFirstTableHtml(rows,currentLabel,priorLabel)}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:chartRows.map(r=>r.label),datasets:[dsBar(priorLabel,chartRows.map(r=>r.prior||0),C.magenta),dsBar(currentLabel,chartRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber)]},options:baseOptions('usd',false)});
 }
 function openForecastEbitdaMonthDrilldown(period){
   forecastOpenModal(`${period} EBITDA Path Drilldown`,`${isForecastActualMonth(period)?'Actual month':'Forecast month'} vs ${forecastSameMonthFY2025(period)} actual | Key P&L checkpoints`,'wide');
@@ -2967,21 +2916,25 @@ function openForecastEbitdaMonthDrilldown(period){
     prior:forecastPeriodValue('actual',key,priorPeriod,abs),
     lowerBetter:abs||forecastCostLikeKey(key)
   })).filter(r=>r.current!=null||r.prior!=null);
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastComparisonTableHtml(flowRows,currentLabel,priorLabel)}</div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:flowRows.map(r=>r.label),datasets:[dsBar(currentLabel,flowRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber),dsBar(priorLabel,flowRows.map(r=>r.prior||0),C.magenta)]},options:baseOptions('usd',false)});
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastPriorFirstTableHtml(flowRows,currentLabel,priorLabel)}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:flowRows.map(r=>r.label),datasets:[dsBar(priorLabel,flowRows.map(r=>r.prior||0),C.magenta),dsBar(currentLabel,flowRows.map(r=>r.current||0),isForecastActualMonth(period)?C.navy:C.amber)]},options:baseOptions('usd',false)});
 }
 function openForecastWaterfallDrilldown(stepLabel){
   if(stepLabel==='Gross Revenue'){
     openForecastGrossRevenueDrilldown('channel');
     return;
   }
+  if(stepLabel==='EBITDA'){
+    openForecastEbitdaBridgeDrilldown();
+    return;
+  }
   const cfg=forecastDrillConfig(stepLabel);
   if(!cfg) return;
-  forecastOpenModal(`${cfg.title} FY Outlook Drilldown`,`FY2025 actual vs Blended FY2026 | ${forecastActualCutoff()} cutoff`,'wide');
+  forecastOpenModal(`${cfg.title} 2026 Outlook Drilldown`,`2025 actual vs Blended 2026 | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastWaterfallDrilldown(cfg);
 }
 function openForecastGrossRevenueDrilldown(tab='channel'){
-  forecastOpenModal('Gross Revenue FY Outlook Drilldown',`FY2025 actual vs Blended FY2026 | ${forecastActualCutoff()} cutoff`,'wide');
+  forecastOpenModal('Gross Revenue 2026 Outlook Drilldown',`2025 actual vs Blended 2026 | ${forecastActualCutoff()} cutoff`,'wide');
   renderForecastGrossRevenueDrilldown(tab);
 }
 function renderForecastGrossRevenueDrilldown(tab='channel'){
@@ -2999,8 +2952,8 @@ function renderForecastWaterfallDrilldown(cfg,tabsHtml=''){
     prior:forecastDetailValue('actual',key,priorMonths,!!cfg.abs),
     lowerBetter:!!cfg.lowerBetter||forecastCostLikeKey(key)
   })).filter(row=>row.current!=null||row.prior!=null);
-  el('drillBody').innerHTML=`${tabsHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastPriorFirstTableHtml(rows,'Blended FY2026','FY2025 Actual')}</div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('FY2025 Actual',rows.map(r=>r.prior||0),C.magenta),dsBar('Blended FY2026',rows.map(r=>r.current||0),C.navy)]},options:baseOptions('usd',false)});
+  el('drillBody').innerHTML=`${tabsHtml}<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div>${forecastPriorFirstTableHtml(rows,'Blended 2026','2025 Actual')}</div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[dsBar('2025 Actual',rows.map(r=>r.prior||0),C.magenta),dsBar('Blended 2026',rows.map(r=>r.current||0),C.navy)]},options:baseOptions('usd',false)});
 }
 
 function revenueAovCard(){
@@ -3075,7 +3028,8 @@ function revValFromKeys(source, metric, keys, period, view=state.view){
 function revRows(kind,period,view=state.view){
   const source=revenueDataSource(kind);
   const items=kind==='channel'?revenueChannelItems():kind==='course'?revenueCourseItems():revenueNewRepeatItems();
-  return items.map(it=>({label:it.label, amount:revValFromKeys(source,'Revenue',it.keys,period,view)})).filter(r=>r.amount!=null);
+  const volMetric=kind==='newrepeat'?'Orders':'Sales_Volume';
+  return items.map(it=>({label:it.label, amount:revValFromKeys(source,'Revenue',it.keys,period,view), volume:revValFromKeys(source,volMetric,it.keys,period,view)})).filter(r=>r.amount!=null);
 }
 function revenueComparisonDatasets(kind){
   const items=kind==='channel'?revenueChannelItems():revenueCourseItems();
@@ -3137,8 +3091,9 @@ function openRevenueBreakdownDrilldown(kind,period,clickedColor){
   el('drillSub').textContent=`${state.view==='ytd'?`YTD ${monthYear(period).yr}`:monthLabelLong(period)} | ${state.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
   const rows=revRows(kind,period,state.view);
   const total=rows.reduce((a,b)=>a+(b.amount||0),0);
-  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.amount,false)}</td><td>${fPct(total?Math.abs(r.amount)/Math.abs(total)*100:null)}</td></tr>`).join('');
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${firstCol}</th><th>Amount</th><th>Share of Total</th></tr></thead><tbody>${tableRows || `<tr><td colspan="3">No data available</td></tr>`}<tr class="total-row"><td>Total</td><td>${fUSD(total,false)}</td><td>${rows.length?'100.0%':'—'}</td></tr></tbody></table></div></div>`;
+  const totalVolume=rows.reduce((a,b)=>a+(b.volume||0),0);
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.amount,false)}</td><td>${fPct(total?Math.abs(r.amount)/Math.abs(total)*100:null)}</td><td>${fInt(r.volume)}</td><td>${fPct(totalVolume?Math.abs(r.volume||0)/Math.abs(totalVolume)*100:null)}</td></tr>`).join('');
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${firstCol}</th><th>Revenue</th><th>% of Total Rev</th><th>Sales Volume</th><th>% of Total Sales Volume</th></tr></thead><tbody>${tableRows || `<tr><td colspan="5">No data available</td></tr>`}<tr class="total-row"><td>Total</td><td>${fUSD(total,false)}</td><td>${rows.length?'100.0%':'—'}</td><td>${fInt(totalVolume)}</td><td>${rows.length?'100.0%':'—'}</td></tr></tbody></table></div></div>`;
   const drillColor=clickedColor||C.navy;
   barChart('execDrillChart',rows.map(r=>r.label),[dsBar('Revenue',rows.map(r=>r.amount),drillColor)],'usd',false);
 }
@@ -3292,16 +3247,19 @@ function renderRevenuePills(){
   const momLabel=prevMonth(state.period);
   const salesMeta=`${revBadge(yoyLabel,salesYoy.pct)}${state.view==='monthly'?revBadge(momLabel,salesPm.pct):''}`;
   const aovMeta=`${revBadge(yoyLabel,aovYoy.pct)}${state.view==='monthly'?revBadge(momLabel,aovPm.pct):''}`;
-  const tsMeta=`<span class="badge">LY: ${fPct(lySplit.tsPct)} / ${fPct(lySplit.nonTsPct)}</span>`;
-  const mixMeta=`<span class="badge">LY: ${fPct(newPctLy)} / ${fPct(repeatPctLy)}</span>`;
-  const valueMeta=`<span class="badge">LY: ${fUSD(newLy)} / ${fUSD(repeatLy)}</span>`;
+  const tsMeta=`<span class="badge">LY: ${fPct(lySplit.tsPct,0)} / ${fPct(lySplit.nonTsPct,0)}</span>`;
+  const mixMeta=`<span class="badge">LY: ${fPct(newPctLy,0)} / ${fPct(repeatPctLy,0)}</span>`;
+  const newYoyPct=pctChange(newVal,newLy);
+  const repeatYoyPct=pctChange(repeatVal,repeatLy);
+  const totalYoyPct=pctChange(total,lyTotal);
+  const valueMeta=`<span class="badge">LY: ${fUSD(newLy)} / ${fUSD(repeatLy)}</span>${revBadge('New',newYoyPct)}${revBadge('Repeat',repeatYoyPct)}`;
   el('revPills').className='rev-kpi-grid';
   el('revPills').innerHTML=
     revenueCard('AOV',fUSD(aovYoy.current,false),aovMeta,aovYoy.pct==null?'watch':aovYoy.pct>=0?'good':'bad')+
     revenueCard('Sales',fInt(salesYoy.current),salesMeta,salesYoy.pct==null?'watch':salesYoy.pct>=0?'good':'bad')+
-    revenueCard('TS vs Non-TS Split',`${fPct(currentSplit.tsPct)} / ${fPct(currentSplit.nonTsPct)}`,tsMeta,'watch')+
-    revenueCard('New vs Repeat %',`${fPct(newPct)} / ${fPct(repeatPct)}`,mixMeta,'watch')+
-    revenueCard('New vs Repeat Revenue',`${fUSD(newVal)} / ${fUSD(repeatVal)}`,valueMeta,'watch');
+    revenueCard('TS vs Non-TS Split',`${fPct(currentSplit.tsPct,0)} / ${fPct(currentSplit.nonTsPct,0)}`,tsMeta,'watch')+
+    revenueCard('New vs Repeat %',`${fPct(newPct,0)} / ${fPct(repeatPct,0)}`,mixMeta,'watch')+
+    revenueCard('New vs Repeat Revenue',`${fUSD(newVal)} / ${fUSD(repeatVal)}`,valueMeta,totalYoyPct==null?'watch':totalYoyPct>=0?'good':'bad');
 }
 function renderRevenueCharts(){
   if(!state.aovMode) state.aovMode='channel';
@@ -4075,11 +4033,48 @@ function salesContributionYoySubtitle(){
     ? `${s.currentYear} vs ${s.priorYear}; monthly path through ${monthYear(state.period).mon}.`
     : `${s.currentYear} monthly path; prior-year Sales_Team data unavailable.`;
 }
+function salesKpiAggregates(ix){
+  if(!ix||!ix.length) return null;
+  const teams=salesTeams();
+  const revenue=sum(ix.map(i=>sum(teams.map(t=>salesTeamRevenue(t.id,i)))));
+  const cost=sum(ix.map(i=>sum(teams.map(t=>salesTeamCost(t.id,i)))));
+  const volume=sum(ix.map(i=>sum(teams.map(t=>salesTeamVolume(t.id,i)))));
+  const headcountMonths=sum(ix.map(i=>sum(teams.map(t=>salesTeamHeadcount(t.id,i)))));
+  const latestHeadcount=sum(teams.map(t=>salesTeamHeadcount(t.id,ix[ix.length-1])));
+  return {
+    roi:cost?revenue/cost:null,
+    contributionPerAgent:headcountMonths?(revenue-cost)/headcountMonths:null,
+    compPct:revenue?cost/revenue*100:null,
+    volumePerAgent:headcountMonths?volume/headcountMonths:null,
+    headcount:latestHeadcount||null
+  };
+}
+function renderSalesKpis(){
+  const host=el('salesKpis');
+  if(!host) return;
+  const cur=salesKpiAggregates(selectedSalesIndexes());
+  if(!cur){host.innerHTML='';return;}
+  const priorPeriod=prevYearMonth(state.period);
+  const prior=salesKpiAggregates(salesIndexesForPeriod(priorPeriod,state.view));
+  const yoyLabel=state.view==='monthly'?priorPeriod:'YoY';
+  const card=(label,text,curV,priorV,fmtPrior,lower=false)=>{
+    const pct=pctChange(curV,priorV);
+    const klass=pct==null?'watch':((lower?pct<0:pct>=0)?'good':'bad');
+    const meta=(prior&&priorV!=null)?`<span class="badge">LY: ${fmtPrior(priorV)}</span>${revBadge(yoyLabel,pct,lower)}`:`<span class="badge watch">No comparison</span>`;
+    return revenueCard(label,text,meta,klass);
+  };
+  host.innerHTML=
+    card('Blended Sales ROI',fRatio(cur.roi),cur.roi,prior?.roi,fRatio)+
+    card('Contribution per Agent',fUSD(cur.contributionPerAgent,false),cur.contributionPerAgent,prior?.contributionPerAgent,v=>fUSD(v,false))+
+    card('Sales Comp % of Revenue',fPct(cur.compPct),cur.compPct,prior?.compPct,fPct,true)+
+    card('Sales Volume per Agent',cur.volumePerAgent==null?'—':cur.volumePerAgent.toFixed(1),cur.volumePerAgent,prior?.volumePerAgent,v=>v==null?'—':v.toFixed(1))+
+    card('Sales Headcount',fInt(cur.headcount),cur.headcount,prior?.headcount,fInt);
+}
 function renderSales(){
   const labels=chartMonthsFromSource(DASH.sales.months);
-  const body=`<div class="chart-grid">${salesCard('Contribution per Agent','Revenue less salaries + incentives, divided by headcount; click bars for calculation','salesContributionBar',null,true,drillNote())}${salesCard('Sales ROI','Sales ROI = revenue / sales salaries and incentives.','salesRoiLine','salesRoiActive',true,trendRangeControl('salesRoiLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent Trend','Contribution per agent = revenue per agent minus salary and incentive cost per agent.','salesContributionTrend','salesContributionActive',true,trendRangeControl('salesContributionTrend',labels))}${salesCard('Sales Volume per Agent by Team','Sales volume per agent = sales volume / sales team headcount.','salesVolumeAgentLine','salesVolumeActive',true,trendRangeControl('salesVolumeAgentLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent YoY',salesContributionYoySubtitle(),'salesContributionYoyLine',null,true,salesContributionYoyControl())}${salesCard('Sales Team Headcount','Total headcount trend; selected month is highlighted; click any bar to see team breakdown','salesHeadcount',null,true,drillNote())}</div><div class="table-wrap"><table><thead><tr><th>Team</th><th>Revenue</th><th>Sales Volume</th><th>AOV</th><th>Headcount</th><th>Salaries + Incentives</th><th>Sales ROI</th><th>Contribution/Agent</th></tr></thead><tbody id="salesTable"></tbody></table></div>`;
+  const body=`<div class="rev-kpi-grid" id="salesKpis"></div><div class="chart-grid">${salesCard('Contribution per Agent','Revenue less salaries + incentives, divided by headcount; click bars for calculation','salesContributionBar',null,true,drillNote())}${salesCard('Sales ROI','Sales ROI = revenue / sales salaries and incentives.','salesRoiLine','salesRoiActive',true,trendRangeControl('salesRoiLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent Trend','Contribution per agent = revenue per agent minus salary and incentive cost per agent.','salesContributionTrend','salesContributionActive',true,trendRangeControl('salesContributionTrend',labels))}${salesCard('Sales Volume per Agent by Team','Sales volume per agent = sales volume / sales team headcount.','salesVolumeAgentLine','salesVolumeActive',true,trendRangeControl('salesVolumeAgentLine',labels))}</div><div class="chart-grid">${salesCard('Contribution per Agent YoY',salesContributionYoySubtitle(),'salesContributionYoyLine',null,true,salesContributionYoyControl())}${salesCard('Sales Team Headcount','Total headcount trend; selected month is highlighted; click any bar to see team breakdown','salesHeadcount',null,true,drillNote())}</div><div class="table-wrap"><table><thead><tr><th>Team</th><th>Revenue</th><th>Sales Volume</th><th>AOV</th><th>Headcount</th><th>Salaries + Incentives</th><th>Sales ROI</th><th>Contribution/Agent</th></tr></thead><tbody id="salesTable"></tbody></table></div>`;
   el('main').innerHTML=pageScaffold('sales','Sales Team Efficiency','Productivity, ROI and headcount for revenue execution',5,body);
-  setNote('sales'); renderSalesCharts(); renderSalesTable();
+  setNote('sales'); renderSalesKpis(); renderSalesCharts(); renderSalesTable();
 }
 function renderSalesCharts(){
   const m=DASH.sales.months, teams=salesTeams(), labels=chartMonthsFromSource(m);
@@ -4618,7 +4613,7 @@ function applyDrilldownLayout(options={}){
     return {cols:Math.max(acc.cols,header),rows:Math.max(acc.rows,rows)};
   },{cols:0,rows:0});
   const text=body.textContent||'';
-  const isComparison=/Variance|Var %|Forecast|FY2025|Previous Month|Same Month|Actual YTD|Remaining Forecast/i.test(text);
+  const isComparison=/Variance|Var %|Forecast|2025|Previous Month|Same Month|Actual YTD|Remaining Forecast/i.test(text);
   const isBreakdown=/Drilldown|Category|Cost Item|Calculation Step|Line Item/i.test(text);
   const wide=options.wide||options.dense||stats.cols>=5||(stats.cols>=4&&isComparison)||(stats.rows>=8&&isBreakdown);
   const analysis=options.analysis||stats.cols>=6||(stats.cols>=5&&stats.rows>=6);
@@ -4668,7 +4663,7 @@ function openGrossRevenueComparisonDrilldown(tab='channel'){
   const modal=ensureModal();
   modal.classList.add('open');
   el('drillTitle').textContent='Gross Revenue Drilldown';
-  el('drillSub').textContent=`${ctxs.current.label} vs ${ctxs.prior.label} | ${state.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
+  el('drillSub').textContent=`${ctxs.prior.label} vs ${ctxs.current.label} | ${state.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
   renderGrossRevenueComparisonDrilldown(tab);
 }
 function renderGrossRevenueComparisonDrilldown(tab='channel'){
@@ -4685,40 +4680,76 @@ function renderGrossRevenueComparisonDrilldown(tab='channel'){
   const priorTotal=sum(rows.map(r=>r.prior));
   const deltaTotal=currentTotal-priorTotal;
   const pctTotal=pctChange(currentTotal,priorTotal);
-  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.current,false)}</td><td>${fUSD(r.prior,false)}</td>${varianceCell(r.delta,false,false)}${varianceCell(r.pct,true,false)}</tr>`).join('');
-  el('drillBody').innerHTML=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderGrossRevenueComparisonDrilldown('channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderGrossRevenueComparisonDrilldown('course')">By Course</button></div><div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${tab==='course'?'Course':'Channel'}</th><th>${ctxs.current.label}</th><th>${ctxs.prior.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>Total</td><td>${fUSD(currentTotal,false)}</td><td>${fUSD(priorTotal,false)}</td>${varianceCell(deltaTotal,false,false)}${varianceCell(pctTotal,true,false)}</tr></tbody></table></div></div>`;
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.prior,false)}</td><td>${fUSD(r.current,false)}</td>${varianceCell(r.delta,false,false)}${varianceCell(r.pct,true,false)}</tr>`).join('');
+  el('drillBody').innerHTML=`<div class="modal-tabs"><button class="modal-tab ${tab==='channel'?'active':''}" onclick="renderGrossRevenueComparisonDrilldown('channel')">By Channel</button><button class="modal-tab ${tab==='course'?'active':''}" onclick="renderGrossRevenueComparisonDrilldown('course')">By Course</button></div><div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>${tab==='course'?'Course':'Channel'}</th><th>${ctxs.prior.label}</th><th>${ctxs.current.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>Total</td><td>${fUSD(priorTotal,false)}</td><td>${fUSD(currentTotal,false)}</td>${varianceCell(deltaTotal,false,false)}${varianceCell(pctTotal,true,false)}</tr></tbody></table></div></div>`;
   chart('execDrillChart',{
     type:'bar',
     data:{labels:rows.map(r=>r.label),datasets:[
-      dsBar(ctxs.current.label,rows.map(r=>r.current),C.navy),
-      dsBar(ctxs.prior.label,rows.map(r=>r.prior),C.magenta)
+      dsBar(ctxs.prior.label,rows.map(r=>r.prior),C.magenta),
+      dsBar(ctxs.current.label,rows.map(r=>r.current),C.navy)
     ]},
     options:baseOptions('usd',false)
   });
 }
-function renderEbitdaDrilldown(ctx){
-  const wf={
-    netRevenue:metricAmountFor('Net Revenue',ctx.period,ctx.view),
-    cogs:metricAmountFor('Total: COGS',ctx.period,ctx.view),
-    academic:metricAmountFor('Total Academic Support Cost',ctx.period,ctx.view),
-    sm:metricAmountFor('Total: S&M Cost',ctx.period,ctx.view),
-    brand:metricAmountFor('Less: Brand Marketing Cost',ctx.period,ctx.view),
-    indirect:metricAmountFor('Total: Indirect Cost',ctx.period,ctx.view),
-    ebitda:metricAmountFor('EBITDA',ctx.period,ctx.view)
-  };
-  const rows=[
-    {label:'Net Revenue',amount:wf.netRevenue,type:'start'},
-    {label:'COGS',amount:-Math.abs(wf.cogs||0),type:'cost'},
-    {label:'Academic Support',amount:-Math.abs(wf.academic||0),type:'cost'},
-    {label:'S&M Cost',amount:-Math.abs(wf.sm||0),type:'cost'},
-    {label:'Brand Marketing',amount:-Math.abs(wf.brand||0),type:'cost'},
-    {label:'Indirect Cost',amount:-Math.abs(wf.indirect||0),type:'cost'},
-    {label:'EBITDA',amount:wf.ebitda,type:'end'}
-  ];
+const EBITDA_DRILL_STEPS=[
+  {label:'Net Revenue',key:'Net Revenue',type:'start'},
+  {label:'COGS',key:'Total: COGS',type:'cost'},
+  {label:'Academic Support',key:'Total Academic Support Cost',type:'cost'},
+  {label:'S&M Cost',key:'Total: S&M Cost',type:'cost'},
+  {label:'Brand Marketing',key:'Less: Brand Marketing Cost',type:'cost'},
+  {label:'Indirect Cost',key:'Total: Indirect Cost',type:'cost'},
+  {label:'Non Operating Income',key:'Add: Non Operating Income',type:'income'},
+  {label:'Interest Income',key:'Add: Interest Income',type:'income'},
+  {label:'EBITDA',key:'EBITDA',type:'end'}
+];
+function ebitdaDrillAmount(step,period,view){
+  const raw=metricAmountFor(step.key,period,view);
+  if(step.type==='cost') return -Math.abs(raw||0);
+  if(step.type==='income') return Math.abs(raw||0);
+  return raw;
+}
+function ebitdaDrillRangeAmount(step,source,months){
+  const raw=plSeriesRangeValue(source,step.key,months);
+  if(step.type==='cost') return -Math.abs(raw||0);
+  if(step.type==='income') return Math.abs(raw||0);
+  return raw;
+}
+function renderEbitdaBridgeComparisonBody(rows,priorRows,priorLabel,currentLabel){
   let running=0;
   const ranges=rows.map(r=>{if(r.type==='start'){running=r.amount||0;return [0,running];} if(r.type==='end')return [0,r.amount||0]; const start=running; running+=r.amount||0; return [Math.min(start,running),Math.max(start,running)];});
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Step</th><th>Amount</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.type==='end'?'total-row':''}"><td>${r.label}</td><td>${fUSD(r.amount,false)}</td></tr>`).join('')}</tbody></table></div></div>`;
-  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[{label:'Amount',data:ranges,_amounts:rows.map(r=>r.amount),_types:rows.map(r=>r.type==='start'?'checkpoint':(r.type==='end'?'ebitda':'cost')),backgroundColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy:(r.type==='end'?(r.amount>=0?C.green:C.red):costGradient(context.chart,false));},borderColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy:(r.type==='end'?(r.amount>=0?C.green:C.red):costBorder(false));},hoverBackgroundColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy2:(r.type==='end'?(r.amount>=0?C.green:C.red):costGradient(context.chart,true));},hoverBorderColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy2:(r.type==='end'?(r.amount>=0?C.green:C.red):costBorder(true));},borderWidth:1,borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>`${c.label}: ${fUSD(c.dataset._amounts[c.dataIndex],false)}`}}},scales:{x:{grid:{display:false}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
+  let tableHtml;
+  if(priorRows){
+    const tableRows=rows.map((r,i)=>{
+      const p=priorRows[i].amount;
+      const delta=(r.amount!=null&&p!=null)?r.amount-p:null;
+      const pct=pctChange(r.amount,p);
+      return `<tr class="${r.type==='end'?'total-row':''}"><td>${r.label}</td><td>${fUSD(p,false)}</td><td>${fUSD(r.amount,false)}</td>${varianceCell(delta,false,false)}${varianceCell(pct,true,false)}</tr>`;
+    }).join('');
+    tableHtml=`<table><thead><tr><th>Step</th><th>${priorLabel}</th><th>${currentLabel}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}</tbody></table>`;
+  } else {
+    tableHtml=`<table><thead><tr><th>Step</th><th>Amount</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.type==='end'?'total-row':''}"><td>${r.label}</td><td>${fUSD(r.amount,false)}</td></tr>`).join('')}</tbody></table>`;
+  }
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table">${tableHtml}</div></div>`;
+  chart('execDrillChart',{type:'bar',data:{labels:rows.map(r=>r.label),datasets:[{label:'Amount',data:ranges,_amounts:rows.map(r=>r.amount),_types:rows.map(r=>r.type==='start'?'checkpoint':(r.type==='end'?'ebitda':(r.type==='income'?'income':'cost'))),backgroundColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy:(r.type==='income'?C.green:(r.type==='end'?(r.amount>=0?C.green:C.red):costGradient(context.chart,false)));},borderColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy:(r.type==='income'?C.green:(r.type==='end'?(r.amount>=0?C.green:C.red):costBorder(false)));},hoverBackgroundColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy2:(r.type==='income'?C.green:(r.type==='end'?(r.amount>=0?C.green:C.red):costGradient(context.chart,true)));},hoverBorderColor:(context)=>{const r=rows[context.dataIndex]; return r.type==='start'?C.navy2:(r.type==='income'?C.green:(r.type==='end'?(r.amount>=0?C.green:C.red):costBorder(true)));},borderWidth:1,borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>`${c.label}: ${fUSD(c.dataset._amounts[c.dataIndex],false)}`}}},scales:{x:{grid:{display:false}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
+}
+function renderEbitdaDrilldown(ctx){
+  const rows=EBITDA_DRILL_STEPS.map(s=>({...s,amount:ebitdaDrillAmount(s,ctx.period,ctx.view)}));
+  const prior={period:prevYearMonth(ctx.period),view:ctx.view==='ytd'?'ytd':'monthly',label:execCompareLabel(ctx.period,ctx.view)};
+  const hasPrior=periodHasMetricData(EBITDA_DRILL_STEPS.map(s=>s.key),prior.period,prior.view);
+  let priorRows=null;
+  if(hasPrior){
+    el('drillSub').textContent=`${prior.label} vs ${ctx.label} | ${ctx.view==='ytd'?'Cumulative YTD':'Selected month'} view`;
+    priorRows=EBITDA_DRILL_STEPS.map(s=>({...s,amount:ebitdaDrillAmount(s,prior.period,prior.view)}));
+  }
+  renderEbitdaBridgeComparisonBody(rows,priorRows,prior.label,ctx.label);
+}
+function openForecastEbitdaBridgeDrilldown(){
+  forecastOpenModal('EBITDA 2026 Outlook Drilldown',`2025 actual vs Blended 2026 | ${forecastActualCutoff()} cutoff`,'wide');
+  const {months}=forecastPeriodSets();
+  const priorMonths=forecastFY2025Months();
+  const rows=EBITDA_DRILL_STEPS.map(s=>({...s,amount:ebitdaDrillRangeAmount(s,'blended',months)}));
+  const priorRows=priorMonths.length?EBITDA_DRILL_STEPS.map(s=>({...s,amount:ebitdaDrillRangeAmount(s,'actual',priorMonths)})):null;
+  renderEbitdaBridgeComparisonBody(rows,priorRows,'2025 Actual','Blended 2026');
 }
 
 function drilldownConfigForStep(stepLabel){
@@ -4772,6 +4803,15 @@ function drilldownConfigForStep(stepLabel){
       keys:['Less: G&A','Less: Infrastructure Salaries','Less: Engineering & Product Salaries','Less: Bonus','Less: Technology OpEx','Less: Vendors VDS & TDS','Less: Salary Tax'],
       mode:'cost',
       note:'Shows indirect cost categories included below contribution margin.'
+    },
+    'Non-Operating':{
+      title:'Non-Operating Drilldown',
+      totalKey:null,
+      totalLabel:'Total Non-Operating',
+      keys:['Add: Non Operating Income','Add: Interest Income'],
+      mode:'cost',
+      higherBetter:true,
+      note:'Shows non-operating income lines added between Indirect Cost and EBITDA. Higher is favorable.'
     }
   };
   return configs[stepLabel]||null;
@@ -4855,9 +4895,10 @@ function renderWaterfallStepComparisonDrilldown(cfg,ctx){
   const priorTotal=waterfallStepTotal(cfg,priorRows,prior)??sum(rows.map(r=>Math.abs(r.prior)));
   const deltaTotal=currentTotal-priorTotal;
   const pctTotal=pctChange(currentTotal,priorTotal);
-  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.prior,false)}</td><td>${fUSD(r.current,false)}</td>${varianceCell(r.delta,false,true)}${varianceCell(r.pct,true,true)}</tr>`).join('');
+  const lowerBetter=!cfg.higherBetter;
+  const tableRows=rows.map(r=>`<tr><td>${r.label}</td><td>${fUSD(r.prior,false)}</td><td>${fUSD(r.current,false)}</td>${varianceCell(r.delta,false,lowerBetter)}${varianceCell(r.pct,true,lowerBetter)}</tr>`).join('');
   const totalLabel=cfg.totalLabel||'Total';
-  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${prior.label}</th><th>${ctx.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(priorTotal,false)}</td><td>${fUSD(currentTotal,false)}</td>${varianceCell(deltaTotal,false,true)}${varianceCell(pctTotal,true,true)}</tr></tbody></table></div></div>`;
+  el('drillBody').innerHTML=`<div class="modal-grid"><div class="modal-chart-box"><canvas id="execDrillChart"></canvas></div><div class="modal-table"><table><thead><tr><th>Category</th><th>${prior.label}</th><th>${ctx.label}</th><th>Variance</th><th>Var %</th></tr></thead><tbody>${tableRows}<tr class="total-row"><td>${totalLabel}</td><td>${fUSD(priorTotal,false)}</td><td>${fUSD(currentTotal,false)}</td>${varianceCell(deltaTotal,false,lowerBetter)}${varianceCell(pctTotal,true,lowerBetter)}</tr></tbody></table></div></div>`;
   chart('execDrillChart',{
     type:'bar',
     data:{labels:rows.map(r=>r.label),datasets:[
