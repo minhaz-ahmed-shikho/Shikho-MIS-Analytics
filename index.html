@@ -59,7 +59,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Gibson','Inter
 .data-status.ok{border-color:#D7EBDD;background:#F7FCF9;color:#2E6E52}
 .data-status-message{flex-basis:100%;line-height:1.45}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
-.kpi-grid.forecast-kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpi-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .kpi-card:before{content:'';position:absolute;inset:0 auto 0 0;width:5px;background:var(--navy)}
 .kpi-card.good:before{background:var(--green)} .kpi-card.bad:before{background:var(--red)} .kpi-card.watch:before{background:var(--amber)}
@@ -2310,9 +2309,9 @@ function renderExecCharts(){
     data:{labels:steps.map(s=>s.label),datasets:[{
       label:'Amount',
       data:ranges,
-      _amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),
+      _amounts:steps.map(s=>(s.kind==='cost'||s.kind==='income')?s.amount:s.display),
       _display:steps.map(s=>s.display),
-      _labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),
+      _labelValues:steps.map(s=>(s.kind==='cost'||s.kind==='income')?s.amount:s.display),
       _types:steps.map(s=>s.kind),
       backgroundColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='income'?C.green:(s.kind==='cost'?costGradient(context.chart,false):((s.display||0)>=0?C.green:C.red)));},
       borderColor:(context)=>{const s=steps[context.dataIndex]; return s.kind==='checkpoint'?C.navy:(s.kind==='income'?C.green:(s.kind==='cost'?costBorder(false):((s.display||0)>=0?C.green:C.red)));},
@@ -2784,7 +2783,7 @@ function renderForecastCharts(months){
     }
     return [0,s.display||0];
   });
-  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>s.kind==='cost'?s.amount:s.display),_labelValues:steps.map(s=>s.kind==='cost'?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{const step=elements.length?steps[elements[0].index]:null; event.native.target.style.cursor=step?.drill?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const step=steps[elements[0].index]; if(step?.drill) openForecastWaterfallDrilldown(step.drill);},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
+  chart('forecastBridge',{type:'bar',data:{labels:steps.map(s=>s.label),datasets:[{label:'Amount',data:ranges,_amounts:steps.map(s=>(s.kind==='cost'||s.kind==='income')?s.amount:s.display),_labelValues:steps.map(s=>(s.kind==='cost'||s.kind==='income')?s.amount:s.display),_types:steps.map(s=>s.kind),backgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(false); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBackgroundColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costGradient(context.chart,true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},hoverBorderColor:(context)=>{const s=steps[context.dataIndex]; if(s.kind==='checkpoint') return C.navy2; if(s.kind==='income') return C.green; if(s.kind==='cost') return costBorder(true); if(s.kind==='gap') return (s.display||0)>=0?C.green:C.red; return (s.display||0)>=0?C.green:C.red;},borderWidth:1,borderRadius:6,borderSkipped:false,maxBarThickness:62}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:28,bottom:16}},interaction:{mode:'nearest',intersect:true},onHover:(event,elements)=>{const step=elements.length?steps[elements[0].index]:null; event.native.target.style.cursor=step?.drill?'pointer':'default';},onClick:(event,elements)=>{if(!elements.length)return; const step=steps[elements[0].index]; if(step?.drill) openForecastWaterfallDrilldown(step.drill);},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${fUSD(ctx.dataset._amounts[ctx.dataIndex],false)}`}}},scales:{x:{grid:{display:false},ticks:{font:{size:10,weight:700},maxRotation:0,minRotation:0}},y:{beginAtZero:false,grid:{color:C.grid},ticks:yTicks('usd')}}},plugins:[waterfallDataLabelPlugin]});
 }
 
 function forecastPeriodSets(){
@@ -4348,10 +4347,11 @@ function renderCash(){
   const baseRows=DASH.cash.filter(r=>r.Scenario==='Base');
   const cashMonths=baseRows.map(r=>r.Month);
   const body=`
+    <div class="rev-kpi-grid" id="cashKpis"></div>
     <div class="chart-grid">
       <div class="chart-card">
         <div class="chart-card-header">
-          <div><div class="chart-control-row" style="margin-top:0;margin-bottom:8px"><select class="small-select" id="cashScenarioSelector">${scenarioOptions}</select></div><div class="chart-title">Net Revenue, Gross Cash Burn & Net Cash Burn</div><div class="chart-sub" id="cashBurnSub">${window.cashScenarioSelected} scenario; ${cashForecastLabel()} shaded as forecast</div></div>
+          <div><div class="chart-control-row" style="margin-top:0;margin-bottom:8px"><select class="small-select" id="cashScenarioSelector">${scenarioOptions}</select></div><div class="chart-title">Net Cash Burn</div><div class="chart-sub" id="cashBurnSub">${window.cashScenarioSelected} scenario; hover a bar for Net Revenue and Gross Cash Burn; ${cashForecastLabel()} shaded as forecast</div></div>
           <div class="chart-actions">${trendRangeControl('cashBurn',cashMonths)}</div>
         </div>
         <div class="chart-body tall"><canvas id="cashBurn"></canvas></div>
@@ -4371,7 +4371,7 @@ function renderCash(){
   const n=el('note-cash'); if(n)n.textContent=`Scenario view; forecast starts from ${cashForecastStart()||'the next forecast month'}.`;
   renderCashCharts();
   const selector=el('cashScenarioSelector');
-  if(selector) selector.onchange=()=>{window.cashScenarioSelected=selector.value; renderCashBurnChart(); const sub=el('cashBurnSub'); if(sub) sub.textContent=`${window.cashScenarioSelected} scenario; ${cashForecastLabel()} shaded as forecast`;};
+  if(selector) selector.onchange=()=>{window.cashScenarioSelected=selector.value; renderCashKpis(); renderCashBurnChart();};
   const tableSelector=el('cashTableScenarioSelector');
   if(tableSelector) tableSelector.onchange=()=>{window.cashTableScenarioSelected=tableSelector.value; renderCashTable();};
   const tog=el('cashMetricToggle');
@@ -4464,7 +4464,73 @@ function cashNegativeZonePlugin(){
     }
   };
 }
+function cashRowLookup(scenario){
+  return Object.fromEntries((DASH.cash||[]).filter(r=>r.Scenario===scenario).map(r=>[r.Month,r]));
+}
+function cashNetBurnOf(r){
+  if(!r) return null;
+  return r.Net_Cash_Burn!=null?r.Net_Cash_Burn:(r.Cash_Burn!=null?r.Cash_Burn:null);
+}
+function cashBalanceCardClass(v){
+  const cls=cashBalanceClass(v);
+  return cls==='neg-var'?'bad':(cls==='watch-var'?'watch':'good');
+}
+function renderCashKpis(){
+  const host=el('cashKpis'); if(!host) return;
+  const actualSet=cashActualMonths();
+  const actuals=[...actualSet].sort((a,b)=>periodSerial(a)-periodSerial(b));
+  if(!actuals.length){host.innerHTML='';return;}
+  const base=cashRowLookup('Base');
+  const latest=actuals[actuals.length-1];
+  const priorMonth=actuals.length>1?actuals[actuals.length-2]:null;
+  const refMonth=actualSet.has(state.period)?state.period:latest;
+
+  const balance=base[latest]?.Closing_Balance;
+  const balancePrior=priorMonth?base[priorMonth]?.Closing_Balance:null;
+  const balPct=pctChange(balance,balancePrior);
+  const balanceMeta=`${priorMonth?revBadge(priorMonth,balPct):'<span class="badge watch">No comparison</span>'}<span class="badge">Closing, ${h(latest)} actual</span>`;
+
+  const ytdActualBurn=(endMonth)=>{
+    if(!endMonth) return null;
+    const yr=endMonth.split('-')[1];
+    const vals=actuals.filter(m=>m.split('-')[1]===yr&&periodSerial(m)<=periodSerial(endMonth)).map(m=>cashNetBurnOf(base[m])).filter(v=>v!=null);
+    return vals.length?sum(vals):null;
+  };
+  const lyMonth=prevYearMonth(refMonth);
+  const burnCur=state.view==='ytd'?ytdActualBurn(refMonth):cashNetBurnOf(base[refMonth]);
+  const burnPrior=state.view==='ytd'?ytdActualBurn(lyMonth):cashNetBurnOf(base[lyMonth]);
+  const burnPct=(burnCur!=null&&burnPrior!=null&&burnPrior!==0)?pctChange(Math.abs(burnCur),Math.abs(burnPrior)):null;
+  const burnKlass=burnPct==null?'watch':(burnPct<0?'good':'bad');
+  const burnLabel=state.view==='ytd'?'YoY':lyMonth;
+  const burnMeta=`${revBadge(burnLabel,burnPct,true)}<span class="badge">${state.view==='ytd'?`YTD ${h(refMonth)}`:h(refMonth)}, Base actuals</span>`;
+
+  const scenario=window.cashScenarioSelected||'Base';
+  let scen=cashRowLookup(scenario);
+  if(!Object.keys(scen).length) scen=base;
+  const latestSerial=periodSerial(latest);
+  const forecastMonths=Object.keys(scen).filter(m=>periodSerial(m)>latestSerial).sort((a,b)=>periodSerial(a)-periodSerial(b));
+  let trough=null,troughMonth=null;
+  forecastMonths.forEach(m=>{
+    const v=scen[m]?.Closing_Balance;
+    if(v!=null&&(trough==null||v<trough)){trough=v;troughMonth=m;}
+  });
+  const troughValue=trough!=null?`${fUSD(trough,false)} <span style="font-size:14px;color:var(--muted);font-weight:400">in ${h(troughMonth)}</span>`:'—';
+  const troughMeta=`<span class="badge watch">Lowest projected point ahead</span><span class="badge">${h(scenario)} scenario</span>`;
+
+  const endMonth=forecastMonths.length?forecastMonths[forecastMonths.length-1]:null;
+  const yearEnd=endMonth?scen[endMonth]?.Closing_Balance:null;
+  const altScenario=scenario==='Pessimistic'?'Base':'Pessimistic';
+  const altVal=endMonth?cashRowLookup(altScenario)[endMonth]?.Closing_Balance:null;
+  const yearEndMeta=`${altVal!=null?`<span class="badge">${h(altScenario)}: ${fUSD(altVal,false)}</span>`:''}<span class="badge">${endMonth?`${h(endMonth)} closing, ${h(scenario)}`:'No forecast months'}</span>`;
+
+  host.innerHTML=
+    revenueCard('Cash Balance',fUSD(balance,false),balanceMeta,cashBalanceCardClass(balance))+
+    revenueCard('Net Cash Burn',fUSD(burnCur,false),burnMeta,burnKlass)+
+    revenueCard('Projected Cash Trough',troughValue,troughMeta,trough!=null?cashBalanceCardClass(trough):'watch')+
+    revenueCard('Year-End Cash',fUSD(yearEnd,false),yearEndMeta,yearEnd!=null?cashBalanceCardClass(yearEnd):'watch');
+}
 function renderCashCharts(){
+  renderCashKpis();
   renderCashBurnChart();
   renderCashScenarioChart();
   renderCashTable();
@@ -4478,20 +4544,25 @@ function renderCashBurnChart(){
   const selected=window.cashScenarioSelected||'Base';
   const rows=cashRowsForSelectedScenario();
   const months=rows.map(r=>r.Month);
-  const netRevenue=rows.map(r=>r.Net_Revenue||0);
-  const grossBurn=rows.map(r=>r.Gross_Cash_Burn!=null?r.Gross_Cash_Burn:(r.Total_Costs||0));
+  const rowsByMonth=Object.fromEntries(rows.map(r=>[r.Month,r]));
   const netBurn=rows.map(r=>r.Net_Cash_Burn!=null?r.Net_Cash_Burn:(r.Cash_Burn||0));
   const datasets=[
-    {...dsBar('Net Revenue',netRevenue,C.navy,'cashflow'),order:2,maxBarThickness:34},
-    {...dsBar('Gross Cash Burn',grossBurn,'rgba(200,79,94,0.68)','cashflow'),borderColor:'rgba(200,79,94,0.68)',order:2,maxBarThickness:34},
-    {...dsLine('Net Cash Burn',netBurn,C.magenta),_hideDataLabels:true,order:1,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:netBurn.map(v=>v<0?C.red:C.green),pointBorderColor:'#fff',pointBorderWidth:2,borderWidth:2.75,segment:{borderColor:ctx=>(ctx.p0.parsed.y<0||ctx.p1.parsed.y<0)?C.red:C.green}}
+    {...dsBar('Net Cash Burn',netBurn,C.navy),backgroundColor:netBurn.map(v=>v<0?C.red:C.green),borderColor:netBurn.map(v=>v<0?C.red:C.green),maxBarThickness:40}
   ];
   const opts=baseOptions('usd',false);
-  opts.plugins={...opts.plugins,tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label}: ${fUSD(ctx.parsed.y,true)}`}}};
-  opts.scales={x:{grid:{display:false},ticks:{color:C.axis,font:{size:10,weight:700}},stacked:true},y:{beginAtZero:false,grid:{color:C.grid},ticks:{...yTicks('usd'),color:C.axis},stacked:true}};
+  opts.plugins={...opts.plugins,tooltip:{callbacks:{
+    label:(ctx)=>`Net Cash Burn: ${fUSD(ctx.parsed.y,true)}`,
+    afterBody:(items)=>{
+      const r=rowsByMonth[items[0]?.label];
+      if(!r) return [];
+      const gross=r.Gross_Cash_Burn!=null?r.Gross_Cash_Burn:r.Total_Costs;
+      return [`Net Revenue: ${fUSD(r.Net_Revenue,true)}`,`Gross Cash Burn: ${fUSD(gross,true)}`];
+    }
+  }}};
+  opts.scales={x:{grid:{display:false},ticks:{color:C.axis,font:{size:10,weight:700}}},y:{beginAtZero:false,grid:{color:C.grid},ticks:{...yTicks('usd'),color:C.axis}}};
   const burnRange=applyTrendRange('cashBurn',months,datasets);
   chart('cashBurn',{type:'bar',data:{labels:burnRange.labels,datasets:burnRange.datasets},options:withBarDataLabels(opts,{format:'usdCompact',color:C.axis}),plugins:[cashForecastShadePlugin(burnRange.labels,cashForecastStart()),barDataLabelPlugin]});
-  const sub=el('cashBurnSub'); if(sub) sub.textContent=`${selected} scenario; ${cashForecastLabel()} shaded as forecast`;
+  const sub=el('cashBurnSub'); if(sub) sub.textContent=`${selected} scenario; hover a bar for Net Revenue and Gross Cash Burn; ${cashForecastLabel()} shaded as forecast`;
 }
 function renderCashScenarioChart(){
   const scenarios=['Base','Optimistic','Pessimistic'].filter(s=>DASH.cash.some(r=>r.Scenario===s));
@@ -4549,7 +4620,7 @@ function cashFlowHtml(value,type){
 function renderCashTable(){
   const selected=window.cashTableScenarioSelected||'Base';
   const actuals=cashActualMonths();
-  const rows=DASH.cash.filter(r=>actuals.has(r.Month)?r.Scenario==='Base':r.Scenario===selected);
+  const rows=DASH.cash.filter(r=>actuals.has(r.Month)?r.Scenario==='Base':r.Scenario===selected).sort((a,b)=>periodSerial(b.Month)-periodSerial(a.Month));
   const tb=el('cashTable'); if(!tb) return;
   tb.innerHTML=rows.map(r=>{
     const type=actuals.has(r.Month)?'Actual':'Forecast';
